@@ -71,6 +71,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--surface-200)}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:var(--radius-full);font-size:12px;font-weight:600;white-space:nowrap}
 .pill.ok{background:var(--profit-soft);color:var(--profit)}.pill.bad{background:var(--loss-soft);color:var(--loss)}
 .pill.brand{background:var(--brand-soft);color:var(--brand)}.pill.mut{background:var(--surface-200);color:var(--ink-muted)}
+.pill.warn{background:var(--brand-soft);color:var(--brand)}
 .seg{display:inline-flex;background:var(--surface-200);border-radius:var(--radius-full);padding:3px}
 .seg button{border:0;background:transparent;padding:6px 14px;border-radius:var(--radius-full);cursor:pointer;color:var(--ink-muted);font-weight:500}
 .seg button.on{background:var(--surface-100);color:var(--ink)}
