@@ -58,7 +58,7 @@ export default function App() {
   else if (route[0] === 'app' && route[1] === 'accounts') page = <Accounts me={me} />;
   else if (route[0] === 'app' && route[1] === 'tree') page = <Tree me={me} />;
   else if (route[0] === 'app') page = <Overview me={me} />;
-  else if (route[0] === 'admin') page = staff ? <Admin me={me} sub={route[1] || 'accounts'} /> : <div className="wrap empty"><b>403</b></div>;
+  else if (route[0] === 'admin') page = staff ? <Admin me={me} sub={route[1] || (me?.role === 'admin' ? 'overview' : 'accounts')} /> : <div className="wrap empty"><b>403</b></div>;
   else page = <Public />;
 
   const tab = (href, label) => <a href={'#' + href} className={hash === href || (href !== '/app' && hash.startsWith(href)) ? 'on' : ''}>{label}</a>;

@@ -1,46 +1,28 @@
 import { useEffect, useState, useCallback } from 'react';
-import { sb, fmt, vnDate } from './lib.js';
+import { sb, fmt, vnDate, rpc } from './lib.js';
+import { Toast, Modal, F, useTable } from './ui.jsx';
+import { FinOverview, Balance, Profit } from './AdminFinance.jsx';
 
 // Quản trị cơ bản (đợt 1): hệ thống, khách hàng, tài khoản + mã khóa EA, người dùng.
 // Chỉ admin / tech được ghi (phân quyền trong cơ sở dữ liệu), core chỉ xem.
 
-function Toast({ msg }) { return msg ? <div className="toast">{msg}</div> : null; }
 
-function Modal({ title, children, onClose, onSave, saving, extra }) {
-  return (
-    <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={e => { e.preventDefault(); onSave(); }}>
-        <div className="row"><div className="title grow">{title}</div><button type="button" className="btn sm" onClick={onClose}>Đóng</button></div>
-        {children}
-        <div className="row">{extra}<span className="grow" /><button type="button" className="btn" onClick={onClose}>Hủy</button><button className="btn pri" disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu'}</button></div>
-      </form>
-    </div>
-  );
-}
-
-const F = ({ label, wide, children }) => <label className={'field' + (wide ? ' wide' : '')}>{label}{children}</label>;
-
-function useTable(name, order = 'created_at') {
-  const [rows, setRows] = useState(null); const [err, setErr] = useState('');
-  const load = useCallback(async () => {
-    const { data, error } = await sb.from(name).select('*').order(order, { ascending: order !== 'created_at' });
-    if (error) setErr(error.message); else setRows(data);
-  }, [name, order]);
-  useEffect(() => { load(); }, [load]);
-  return [rows, load, err];
-}
 
 export default function Admin({ me, sub }) {
   const editor = ['admin', 'tech'].includes(me?.role);
   const [toast, setToast] = useState('');
   const say = m => { setToast(m); setTimeout(() => setToast(''), 2800); };
-  const tabs = [['accounts', 'Tài khoản & mã EA'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng']] : [])];
+  const isAdmin = me?.role === 'admin';
+  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ['accounts', 'Tài khoản & mã EA'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng']] : [])];
   return (
     <main className="wrap">
       <div className="row"><h1 className="h-lg grow">Quản trị</h1>
         <nav className="tabs">{tabs.map(([k, l]) => <a key={k} href={'#/admin/' + k} className={sub === k ? 'on' : ''}>{l}</a>)}</nav></div>
       {!editor && <div className="pill mut">Tài khoản Core team chỉ xem, không sửa được.</div>}
-      {sub === 'customers' ? <Customers editor={editor} say={say} />
+      {isAdmin && sub === 'overview' ? <FinOverview say={say} />
+        : isAdmin && sub === 'balance' ? <Balance say={say} />
+        : isAdmin && sub === 'profit' ? <Profit say={say} />
+        : sub === 'customers' ? <Customers editor={editor} say={say} />
         : sub === 'systems' ? <Systems editor={editor} say={say} />
         : sub === 'users' ? <Users say={say} />
         : sub === 'vps' ? <Vps editor={editor} say={say} />
@@ -138,8 +120,7 @@ function AccountsAdmin({ editor, say }) {
   const [status, setStatus] = useState({});
   const [edit, setEdit] = useState(null); const [saving, setSaving] = useState(false); const [q, setQ] = useState('');
   useEffect(() => {
-    sb.from('daily_results').select('account_id,date,balance,received_at').order('date', { ascending: false }).limit(2000)
-      .then(({ data }) => { const m = {}; (data || []).forEach(r => { if (!m[r.account_id]) m[r.account_id] = r; }); setStatus(m); });
+    rpc('staff_ea_seen').then(data => { const m = {}; (data || []).forEach(r => { m[r.account_id] = r; }); setStatus(m); }).catch(() => {});
   }, [rows]);
   const save = async () => {
     if (!edit.customer_id) return say('Chọn khách hàng');
@@ -168,7 +149,7 @@ function AccountsAdmin({ editor, say }) {
           <tr key={a.id}>
             <td className={editor ? 'click num' : 'num'} onClick={() => editor && setEdit({ ...a })} style={{ cursor: editor ? 'pointer' : 'default' }}>{a.account_no}<div className="small muted">{a.currency}{a.status === 'stopped' ? ' · đã dừng' : ''}</div></td>
             <td>{cname(a.customer_id)}{a.bot_end && <div className="small muted">Bot hết hạn {vnDate(a.bot_end)}</div>}</td><td>{a.broker || ''}<div className="small muted">{a.server || ''}</div></td><td className="r num">{fmt(a.share_pct, 0)}%</td>
-            <td>{s ? <><span className="num">{fmt(s.balance)}</span><div className="small muted">{vnDate(s.date)}</div></> : <span className="pill mut">Chưa nhận</span>}</td>
+            <td>{s?.last_seen ? <><span className={'pill ' + (s.stale_days >= 3 ? 'bad' : 'ok')}>{s.stale_days >= 3 ? 'Ngừng ' + s.stale_days + ' ngày' : 'Đang gửi'}</span><div className="small muted">Lần cuối {new Date(s.last_seen).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })}</div></> : <span className="pill mut">Chưa nhận</span>}</td>
             <td>{editor ? <span className="row" style={{ gap: 6 }}><span className="key">{a.ingest_key.slice(0, 8)}…</span><button className="btn sm" onClick={() => copy(a.ingest_key)}>Chép</button></span> : '—'}</td>
           </tr>); })}
       </tbody></table></div>
