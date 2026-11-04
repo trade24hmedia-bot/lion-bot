@@ -244,3 +244,13 @@ revoke all on function public.acc_period(uuid, date, date) from public, anon;
 grant execute on function public.staff_ea_seen(), public.admin_balance(date, date), public.admin_profit(date),
   public.admin_profit_pay(uuid, date, numeric, date, text), public.admin_profit_set(uuid, date, numeric, numeric, text),
   public.acc_period(uuid, date, date), public.vn_today(), public.workdays_between(date, date) to authenticated;
+
+-- Trang xem như khách (Tổng quan / Tài khoản / Hệ thống): trong team chỉ QUẢN LÝ xem được toàn bộ.
+-- Kỹ thuật / core chỉ thấy tài khoản của chính họ (nếu họ cũng là khách) hoặc nhánh họ làm trưởng.
+create or replace function public.visible_customer_ids() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select c.id from public.customers c where public.is_admin()
+  union
+  select public.my_customer_id() where public.my_customer_id() is not null
+  union
+  select c.id from public.customers c where c.system_id in (select public.my_led_systems()) $$;
