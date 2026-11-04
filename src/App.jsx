@@ -65,7 +65,7 @@ export default function App() {
   return (
     <>
       <header className="top"><div className="wrap">
-        <a className="logo" href={session ? '#/app' : '#/'}><img src="/lion-mark.svg" alt="" /><b>LION BOT</b></a>
+        <a className="logo" href="#/" title="Trang chủ"><img src="/logo-128.png" alt="Lion Bot" width="40" height="40" /><b>LION BOT</b></a>
         {session && <nav className="tabs">
           {tab('/app', t('overview'))}{tab('/app/accounts', t('accounts'))}
           {(me?.is_leader || staff) && tab('/app/tree', t('tree'))}

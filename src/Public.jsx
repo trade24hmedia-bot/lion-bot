@@ -9,9 +9,12 @@ export default function Public() {
   const cur = months[months.length - 1];
   return (
     <main className="wrap">
-      <section className="hero">
+      <section className="hero" style={{ gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center' }}>
+        <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
         <h1 className="h-display">{t('heroTitle')}</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 640 }}>{t('heroSub')}</p>
+      </div>
+        <img className="hero-logo" src="/logo-256.png" alt="Lion Trading Bot" width="220" height="220" />
       </section>
       {err && <div className="card neg">{err}</div>}
       <section className="kpis">

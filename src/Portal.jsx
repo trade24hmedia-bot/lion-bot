@@ -30,26 +30,29 @@ function AccTable({ rows, showCustomer }) {
 
 export function Overview({ me }) {
   const [range, picker] = usePeriod();
-  const [accs, err] = useRpc('portal_period', { p_from: range.from, p_to: range.to }, [range.from, range.to]);
-  const [series] = useRpc('portal_series', { p_scope: 'all' }, []);
+  const [scope, setScope] = useState(() => (me?.customer || me?.is_leader ? 'mine' : 'all'));
+  const [accs, err] = useRpc('portal_period', { p_from: range.from, p_to: range.to, p_scope: scope }, [range.from, range.to, scope]);
+  const [daily] = useRpc('portal_daily', { p_from: range.from, p_to: range.to, p_scope: scope }, [range.from, range.to, scope]);
   const [q, setQ] = useState('');
-  if (err) return <main className="wrap"><div className="card neg">{err}</div></main>;
-  if (!accs) return <main className="wrap"><div className="empty">{t('loading')}</div></main>;
+  const scopeUi = <div className="seg">{[['all', t('scopeAll')], ['mine', t('scopeMine')]].map(([k, l]) => <button key={k} type="button" className={scope === k ? 'on' : ''} onClick={() => setScope(k)}>{l}</button>)}</div>;
+  const head = <div className="row"><h1 className="h-lg grow">{me?.customer?.name || t('overview')}</h1>{scopeUi}{picker}</div>;
+  if (err) return <main className="wrap">{head}<div className="card neg">{err}</div></main>;
+  if (!accs) return <main className="wrap">{head}<div className="empty">{t('loading')}</div></main>;
   if (!accs.length) return (
-    <main className="wrap"><div className="card empty"><b>{t('noAccount')}</b><span>{t('noAccountHint')}</span></div></main>
+    <main className="wrap">{head}<div className="card empty"><b>{t('noAccount')}</b><span>{t('noAccountHint')}</span>
+      {scope === 'mine' && <button className="btn pri" onClick={() => setScope('all')}>{t('scopeAll')} →</button>}</div></main>
   );
   const run = accs.filter(a => a.status !== 'stopped');
   const sum = (k, l = accs) => l.reduce((s, a) => s + (Number(a[k]) || 0), 0);
+  const u = (v, a) => (a.currency === 'USC' ? Number(v || 0) / 100 : Number(v || 0));
   const cap = sum('capital_usd', run), pn = sum('profit_usd');
-  const base = accs.reduce((s, a) => s + (a.currency === 'USC' ? (Number(a.start_balance || 0) + Number(a.deposit || 0)) / 100 : Number(a.start_balance || 0) + Number(a.deposit || 0)), 0);
-  const dep = accs.reduce((s, a) => s + (a.currency === 'USC' ? Number(a.deposit || 0) / 100 : Number(a.deposit || 0)), 0);
-  // lãi lũy kế trong kỳ
-  let c = 0; const ser = (series || []).filter(r => r.date >= range.from && r.date <= range.to).map(r => ({ date: r.date, cum: (c += Number(r.net_usd) || 0) }));
-  const showCus = accs.some(a => !a.is_mine) || new Set(accs.map(a => a.customer_name)).size > 1;
+  const base = accs.reduce((s, a) => s + u(a.start_balance, a) + u(a.deposit, a), 0);
+  const dep = accs.reduce((s, a) => s + u(a.deposit, a), 0);
+  let c = 0; const ser = (daily || []).map(r => ({ date: r.date, cum: Math.round((c += Number(r.net_usd) || 0) * 100) / 100 }));
   const list = accs.filter(a => !q || [a.account_mask, a.customer_name, a.broker, a.system_name].join(' ').toLowerCase().includes(q.toLowerCase()));
   return (
     <main className="wrap">
-      <div className="row"><h1 className="h-lg grow">{me?.customer?.name || t('overview')}</h1>{picker}</div>
+      {head}
       <section className="kpis">
         <div className="kpi"><span className="label">{t('capitalRun')}</span><span className="num-xl">{usd(cap)}</span><span className="sub">{run.length} {t('accounts').toLowerCase()}</span></div>
         <div className="kpi"><span className="label">{t('profitPeriod')}</span><span className={'num-xl ' + cls(pn)}>{signedUsd(pn)}</span><span className="sub">{range.label}</span></div>
@@ -63,11 +66,11 @@ export function Overview({ me }) {
         <div className="row"><div className="title grow">{t('myAccounts')} ({run.length})</div>
           <label className="field" style={{ width: 'min(260px,100%)' }}><input id="ov-search" type="search" placeholder={t('search')} value={q} onChange={e => setQ(e.target.value)} /></label></div>
         <div className="tbl"><table>
-          <thead><tr><th>{t('accounts')}</th>{showCus && <th>{t('customer')}</th>}<th className="r">{t('capitalCol')}</th><th className="r">{t('profitPeriod')}</th><th className="r">%</th><th className="r">{t('profitAll')}</th></tr></thead>
+          <thead><tr><th>{t('accounts')}</th><th>{t('customer')} / {t('branch')}</th><th className="r">{t('capitalCol')}</th><th className="r">{t('profitPeriod')}</th><th className="r">%</th><th className="r">{t('profitAll')}</th></tr></thead>
           <tbody>{list.map(a => (
-            <tr key={a.id} className="click" onClick={() => { location.hash = '/app/a/' + a.id; }}>
-              <td><span className="num">{a.account_mask}</span><div className="small muted">{a.broker || ''} · {a.currency}{a.status === 'stopped' ? ' · ⏸' : ''}</div></td>
-              {showCus && <td>{a.customer_name}<div className="small muted">{a.system_name || ''}</div></td>}
+            <tr key={a.id} className={a.can_open ? 'click' : ''} onClick={() => { if (a.can_open) location.hash = '/app/a/' + a.id; }}>
+              <td><span className="num">{a.account_mask}</span>{a.is_mine && scope === 'all' && <span className="pill brand" style={{ marginLeft: 6, fontSize: 10 }}>★</span>}<div className="small muted">{a.broker || ''} · {a.currency}{a.status === 'stopped' ? ' · ⏸' : ''}</div></td>
+              <td>{a.customer_name || <span className="muted">{t('hidden')}</span>}<div className="small muted">{a.system_name || ''}</div></td>
               <td className="r num">{usd(a.capital_usd)}{a.currency === 'USC' && <div className="small muted">{fmt(a.capital)} USC</div>}</td>
               <td className={'r num ' + cls(a.profit_usd)}>{a.days ? signedUsd(a.profit_usd) : '—'}<div className="small muted">{a.days} {t('days')}</div></td>
               <td className={'r num ' + cls(a.growth_pct)}>{a.days ? pctTxt(a.growth_pct) : '—'}</td>
