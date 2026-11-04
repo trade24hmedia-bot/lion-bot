@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { rpc, t, usd, signedUsd, signed, fmt, cls, vnDate, monthLabel, minsAgo } from './lib.js';
 import { LineArea } from './Charts.jsx';
+import { usePeriod } from './ui.jsx';
 
 function useRpc(name, args, deps) {
   const [data, setData] = useState(null); const [err, setErr] = useState('');
@@ -28,30 +29,52 @@ function AccTable({ rows, showCustomer }) {
 }
 
 export function Overview({ me }) {
-  const [accs, err] = useRpc('portal_accounts', {}, []);
-  const [series] = useRpc('portal_series', { p_scope: 'mine' }, []);
+  const [range, picker] = usePeriod();
+  const [accs, err] = useRpc('portal_period', { p_from: range.from, p_to: range.to }, [range.from, range.to]);
+  const [series] = useRpc('portal_series', { p_scope: 'all' }, []);
+  const [q, setQ] = useState('');
   if (err) return <main className="wrap"><div className="card neg">{err}</div></main>;
   if (!accs) return <main className="wrap"><div className="empty">{t('loading')}</div></main>;
-  const mine = accs.filter(a => a.is_mine);
-  if (!mine.length) return (
-    <main className="wrap"><div className="card empty"><b>{t('noAccount')}</b><span>{t('noAccountHint')}</span><span className="small">{me?.email}</span></div></main>
+  if (!accs.length) return (
+    <main className="wrap"><div className="card empty"><b>{t('noAccount')}</b><span>{t('noAccountHint')}</span></div></main>
   );
-  const sum = k => mine.reduce((s, a) => s + (Number(a[k]) || 0), 0);
-  const cap = sum('capital_usd'), pm = sum('profit_month_usd');
-  const start = cap - pm;
+  const run = accs.filter(a => a.status !== 'stopped');
+  const sum = (k, l = accs) => l.reduce((s, a) => s + (Number(a[k]) || 0), 0);
+  const cap = sum('capital_usd', run), pn = sum('profit_usd');
+  const base = accs.reduce((s, a) => s + (a.currency === 'USC' ? (Number(a.start_balance || 0) + Number(a.deposit || 0)) / 100 : Number(a.start_balance || 0) + Number(a.deposit || 0)), 0);
+  const dep = accs.reduce((s, a) => s + (a.currency === 'USC' ? Number(a.deposit || 0) / 100 : Number(a.deposit || 0)), 0);
+  // lãi lũy kế trong kỳ
+  let c = 0; const ser = (series || []).filter(r => r.date >= range.from && r.date <= range.to).map(r => ({ date: r.date, cum: (c += Number(r.net_usd) || 0) }));
+  const showCus = accs.some(a => !a.is_mine) || new Set(accs.map(a => a.customer_name)).size > 1;
+  const list = accs.filter(a => !q || [a.account_mask, a.customer_name, a.broker, a.system_name].join(' ').toLowerCase().includes(q.toLowerCase()));
   return (
     <main className="wrap">
-      <h1 className="h-lg">{me?.customer?.name || me?.email}</h1>
+      <div className="row"><h1 className="h-lg grow">{me?.customer?.name || t('overview')}</h1>{picker}</div>
       <section className="kpis">
-        <div className="kpi"><span className="label">{t('myCapital')}</span><span className="num-xl">{usd(cap)}</span><span className="sub">{mine.length} {t('accounts').toLowerCase()}</span></div>
-        <div className="kpi"><span className="label">{t('profitMonth')}</span><span className={'num-xl ' + cls(pm)}>{signedUsd(pm)}</span></div>
-        <div className="kpi"><span className="label">{t('profitAll')}</span><span className={'num-xl ' + cls(sum('profit_total_usd'))}>{signedUsd(sum('profit_total_usd'))}</span></div>
-        <div className="kpi"><span className="label">{t('growth')}</span><span className={'num-xl ' + cls(pm)}>{start > 0 ? pctTxt(Math.round(pm / start * 10000) / 100) : '—'}</span></div>
+        <div className="kpi"><span className="label">{t('capitalRun')}</span><span className="num-xl">{usd(cap)}</span><span className="sub">{run.length} {t('accounts').toLowerCase()}</span></div>
+        <div className="kpi"><span className="label">{t('profitPeriod')}</span><span className={'num-xl ' + cls(pn)}>{signedUsd(pn)}</span><span className="sub">{range.label}</span></div>
+        <div className="kpi"><span className="label">{t('growthPeriod')}</span><span className={'num-xl ' + cls(pn)}>{base > 0 ? pctTxt(Math.round(pn / base * 10000) / 100) : '—'}</span></div>
+        <div className="kpi"><span className="label">{t('depositPeriod')}</span><span className="num-xl">{usd(dep)}</span><span className="sub">{t('profitAll')}: {signedUsd(sum('profit_total_usd'))}</span></div>
       </section>
-      <section className="card"><div className="title">{t('cumProfit')}</div>
-        {series?.length ? <LineArea data={series} x="date" y="cum_profit_usd" prefix="$" /> : <div className="empty">{t('none')}</div>}
+      <section className="card"><div className="title">{t('cumPeriod')}</div>
+        {ser.length ? <LineArea data={ser} x="date" y="cum" prefix="$" /> : <div className="empty">{t('none')}</div>}
       </section>
-      <section className="card"><div className="row"><div className="title grow">{t('myAccounts')}</div></div><AccTable rows={mine} /></section>
+      <section className="card">
+        <div className="row"><div className="title grow">{t('myAccounts')} ({run.length})</div>
+          <label className="field" style={{ width: 'min(260px,100%)' }}><input id="ov-search" type="search" placeholder={t('search')} value={q} onChange={e => setQ(e.target.value)} /></label></div>
+        <div className="tbl"><table>
+          <thead><tr><th>{t('accounts')}</th>{showCus && <th>{t('customer')}</th>}<th className="r">{t('capitalCol')}</th><th className="r">{t('profitPeriod')}</th><th className="r">%</th><th className="r">{t('profitAll')}</th></tr></thead>
+          <tbody>{list.map(a => (
+            <tr key={a.id} className="click" onClick={() => { location.hash = '/app/a/' + a.id; }}>
+              <td><span className="num">{a.account_mask}</span><div className="small muted">{a.broker || ''} · {a.currency}{a.status === 'stopped' ? ' · ⏸' : ''}</div></td>
+              {showCus && <td>{a.customer_name}<div className="small muted">{a.system_name || ''}</div></td>}
+              <td className="r num">{usd(a.capital_usd)}{a.currency === 'USC' && <div className="small muted">{fmt(a.capital)} USC</div>}</td>
+              <td className={'r num ' + cls(a.profit_usd)}>{a.days ? signedUsd(a.profit_usd) : '—'}<div className="small muted">{a.days} {t('days')}</div></td>
+              <td className={'r num ' + cls(a.growth_pct)}>{a.days ? pctTxt(a.growth_pct) : '—'}</td>
+              <td className={'r num ' + cls(a.profit_total_usd)}>{signedUsd(a.profit_total_usd)}</td>
+            </tr>))}
+          </tbody></table></div>
+      </section>
       <p className="disclaimer">{t('disclaimer')}</p>
     </main>
   );

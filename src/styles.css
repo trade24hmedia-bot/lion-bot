@@ -83,7 +83,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--surface-200)}
 .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-3)}
 .form .wide{grid-column:1/-1}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:20;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:32px 12px}
-.modal{background:var(--surface-100);border:1px solid var(--line);border-radius:var(--radius-lg);width:min(720px,100%);padding:var(--space-6);display:grid;gap:var(--space-4)}
+.modal{max-height:92vh;overflow-y:auto;background:var(--surface-100);border:1px solid var(--line);border-radius:var(--radius-lg);width:min(820px,100%);padding:var(--space-6);display:grid;gap:var(--space-4)}
 .tree ul{list-style:none;margin:0;padding-left:22px;border-left:1px dashed var(--line)}
 .tree>ul{padding-left:0;border-left:0}
 .tree li{margin:8px 0}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { sb, rpc, fmt, usd, signed, signedUsd, cls, vnDate } from './lib.js';
-import { Modal, F, useTable } from './ui.jsx';
+import { Modal, F, useTable, usePeriod } from './ui.jsx';
 
 // Màn tài chính: CHỈ QUẢN LÝ (cơ sở dữ liệu cũng chặn, không chỉ ẩn nút).
 
@@ -26,30 +26,6 @@ function BotCell({ r }) {
   if (!r.seen) return <span className="pill mut">Chưa nhận</span>;
   const d = r.stale_days || 0;
   return <><span className={'pill ' + (d >= 3 ? 'bad' : 'ok')}>{d >= 3 ? `Ngừng ${d} ngày` : 'Đang gửi'}</span><div className="small muted">{seenTxt(r.seen)}</div></>;
-}
-
-// ------------------------------------------------------------ chọn kỳ
-function usePeriod() {
-  const t = vnNow();
-  const [mode, setMode] = useState('month');
-  const [m, setM] = useState(iso(monthStart(t.getFullYear(), t.getMonth())));
-  const [qtr, setQtr] = useState(`${t.getFullYear()}-Q${Math.floor(t.getMonth() / 3) + 1}`);
-  const [from, setFrom] = useState(iso(monthStart(t.getFullYear(), t.getMonth())));
-  const [to, setTo] = useState(iso(t));
-  const range = useMemo(() => {
-    if (mode === 'month') { const d = new Date(m + 'T00:00:00'); return { from: m, to: iso(monthEnd(d.getFullYear(), d.getMonth())), label: 'Tháng ' + mLabel(d) }; }
-    if (mode === 'quarter') { const [y, q] = qtr.split('-Q').map(Number); return { from: iso(monthStart(y, (q - 1) * 3)), to: iso(monthEnd(y, q * 3 - 1)), label: `Quý ${q}/${y}` }; }
-    return { from, to, label: `${vnDate(from)} → ${vnDate(to)}` };
-  }, [mode, m, qtr, from, to]);
-  const quarters = useMemo(() => { const out = []; let y = t.getFullYear(), q = Math.floor(t.getMonth() / 3) + 1; for (let i = 0; i < 6; i++) { out.push(`${y}-Q${q}`); q--; if (!q) { q = 4; y--; } } return out; }, []);
-  const ui = (
-    <div className="row">
-      <div className="seg">{[['month', 'Tháng'], ['quarter', 'Quý'], ['custom', 'Tùy chọn ngày']].map(([k, l]) => <button key={k} type="button" className={mode === k ? 'on' : ''} onClick={() => setMode(k)}>{l}</button>)}</div>
-      {mode === 'month' && <select id="per-month" className="btn sm" value={m} onChange={e => setM(e.target.value)}>{lastMonths(12).map(d => <option key={iso(d)} value={iso(d)}>Tháng {mLabel(d)}</option>)}</select>}
-      {mode === 'quarter' && <select id="per-q" className="btn sm" value={qtr} onChange={e => setQtr(e.target.value)}>{quarters.map(k => <option key={k} value={k}>Quý {k.split('-Q')[1]}/{k.split('-Q')[0]}</option>)}</select>}
-      {mode === 'custom' && <><input id="per-from" type="date" className="btn sm" value={from} onChange={e => setFrom(e.target.value)} /><span className="muted">→</span><input id="per-to" type="date" className="btn sm" value={to} onChange={e => setTo(e.target.value)} /></>}
-    </div>);
-  return [range, ui];
 }
 
 // ------------------------------------------------------------ tổng quan
@@ -198,21 +174,24 @@ export function Balance({ say }) {
 // ------------------------------------------------------------ chia lợi nhuận
 const ST = { none: ['mut', 'Không phát sinh'], paid: ['ok', 'Đã thu'], partial: ['warn', 'Thu một phần'], due: ['bad', 'Còn nợ'] };
 export function Profit({ say }) {
-  const t = vnNow();
-  const [month, setMonth] = useState(iso(monthStart(t.getFullYear(), t.getMonth())));   // '' = mọi kỳ còn nợ
+  const [range, picker] = usePeriod();
+  const [allDue, setAllDue] = useState(false);   // true = mọi kỳ còn nợ, bỏ qua thời gian
   const [data, setData] = useState(null); const [pays, setPays] = useState([]); const [err, setErr] = useState('');
   const [q, setQ] = useState(''); const [only, setOnly] = useState('');
   const [pay, setPay] = useState(null); const [edit, setEdit] = useState(null); const [saving, setSaving] = useState(false);
+  const pFrom = range.from.slice(0, 7) + '-01', pTo = range.to.slice(0, 7) + '-01';
   const load = useCallback(() => {
     setData(null);
-    rpc('admin_profit', { p_month: month || null }).then(setData).catch(e => setErr(e.message));
-    let qy = sb.from('profit_payments').select('*').order('paid_at', { ascending: false }).order('id', { ascending: false }).limit(300);
-    if (month) qy = qy.eq('period', month);
+    rpc('admin_profit_range', allDue ? { p_from: null, p_to: null, p_due_only: true } : { p_from: range.from, p_to: range.to, p_due_only: false }).then(setData).catch(e => setErr(e.message));
+    let qy = sb.from('profit_payments').select('*').order('paid_at', { ascending: false }).order('id', { ascending: false }).limit(500);
+    if (!allDue) qy = qy.gte('period', pFrom).lte('period', pTo);
     qy.then(({ data }) => setPays(data || []));
-  }, [month]);
+  }, [range.from, range.to, allDue]);
   useEffect(() => { load(); }, [load]);
   if (err) return <div className="card neg">{err}</div>;
-  const months = Array.from(new Set([...(data?.months || []), ...lastMonths(3).map(iso)])).sort().reverse();
+  const multi = allDue || pFrom !== pTo;
+  const month = multi ? '' : pFrom;
+  const title = allDue ? 'Mọi kỳ còn nợ' : range.label + (range.mode === 'custom' && multi ? ' (theo các tháng trong khoảng)' : '');
   const rows = (data?.rows || []).filter(r => hit(r, q) && (!only || r.status === only || (only === 'due' && r.status === 'partial')));
   const tot = k => rows.reduce((s, r) => s + Number(r[k] || 0), 0);
   const label = r => (data?.rows || []).find(x => x.account_id === r.account_id);
@@ -232,9 +211,9 @@ export function Profit({ say }) {
   return (
     <>
       <section className="card">
-        <div className="row"><div className="title grow">Chia lợi nhuận · {month ? 'Tháng ' + mLabel(new Date(month + 'T00:00:00')) : 'Mọi kỳ còn nợ'}</div>
-          <select id="pro-month" className="btn sm" value={month} onChange={e => setMonth(e.target.value)}>
-            <option value="">Mọi kỳ còn nợ</option>{months.map(m => <option key={m} value={m}>Tháng {mLabel(new Date(m + 'T00:00:00'))}</option>)}</select></div>
+        <div className="row"><div className="title grow">Chia lợi nhuận · {title}</div>
+          {!allDue && picker}
+          <button type="button" className={'btn sm' + (allDue ? ' pri' : '')} onClick={() => setAllDue(!allDue)}>{allDue ? '← Theo thời gian' : 'Mọi kỳ còn nợ'}</button></div>
         <p className="small muted" style={{ margin: 0 }}>Lợi nhuận tháng = tổng lãi/lỗ ròng các ngày EA gửi (quy USD). Công ty nhận = lợi nhuận × tỷ lệ của tài khoản; tháng lỗ thì không phát sinh. Bấm <b>Sửa</b> để chỉnh tay lợi nhuận hoặc tỷ lệ riêng cho kỳ đó.</p>
         {data && <div className="kpis">
           <Kpi label="Lợi nhuận (USD)" value={signedUsd(tot('profit_usd'))} tone={cls(tot('profit_usd'))} sub={rows.length + ' tài khoản'} />
@@ -256,15 +235,15 @@ export function Profit({ say }) {
               <td className="r num">{usd(r.due)}</td><td className="r num pos">{Number(r.paid) ? usd(r.paid) : '—'}{r.last_paid && <div className="small muted">{vnDate(r.last_paid)}</div>}</td>
               <td className={'r num ' + (Number(r.out) > 0 ? 'neg' : '')}>{Number(r.out) ? usd(r.out) : '—'}</td>
               <td><span className={'pill ' + ST[r.status][0]}>{ST[r.status][1]}</span>{r.note && <div className="small muted">{r.note}</div>}</td>
-              <td className="r"><span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+              <td className="r"><span style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
                 {Number(r.out) > 0 && <button className="btn pri sm" onClick={() => setPay({ account_id: r.account_id, period: r.period, amount: r.out, paid_at: iso(vnNow()), r })}>Ghi thu</button>}
                 <button className="btn sm" onClick={() => setEdit({ account_id: r.account_id, period: r.period, override: r.manual ? r.profit_usd : '', pct: r.share_pct, note: r.note || '', r })}>Sửa</button></span></td>
             </tr>))}
-          {!rows.length && <tr><td colSpan={11} className="empty">{month ? 'Chưa có kết quả trong tháng này' : 'Không còn kỳ nào còn nợ'}</td></tr>}
+          {!rows.length && <tr><td colSpan={11} className="empty">{allDue ? 'Không còn kỳ nào còn nợ' : 'Chưa có kết quả trong khoảng này'}</td></tr>}
         </tbody></table></div>}
       </section>
       <section className="card">
-        <div className="title">Lịch sử thu tiền{month ? ' · tháng ' + mLabel(new Date(month + 'T00:00:00')) : ''} ({pays.length})</div>
+        <div className="title">Lịch sử thu tiền · {allDue ? 'tất cả' : title} ({pays.length})</div>
         {pays.length ? <div className="tbl"><table><thead><tr><th>Ngày thu</th><th>Khách / TK</th><th>Kỳ</th><th className="r">Số tiền</th><th>Ghi chú</th><th>Người ghi</th><th></th></tr></thead><tbody>
           {pays.map(p => { const r = label(p); return (
             <tr key={p.id}><td>{vnDate(p.paid_at)}</td><td>{r ? accLabel(r) : <span className="muted">—</span>}</td><td>{mLabel(new Date(p.period + 'T00:00:00'))}</td>

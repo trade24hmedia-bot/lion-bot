@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
 });
@@ -37,13 +37,16 @@ const DICT = {
     emailLabel: 'Email đã đăng ký với Lion Bot', sendLink: 'Gửi link đăng nhập', sent: 'Đã gửi link đăng nhập tới email của bạn. Mở email trên thiết bị này và bấm vào link.',
     loginHint: 'Không cần mật khẩu. Hệ thống gửi một link đăng nhập vào email của bạn.',
     myCapital: 'Vốn của tôi', profitMonth: 'Lãi tháng này', profitAll: 'Lãi từ đầu', growth: 'Tăng trưởng tháng',
-    myAccounts: 'Tài khoản của tôi', downline: 'Tài khoản tuyến dưới', broker: 'Sàn', customer: 'Khách hàng',
+    myAccounts: 'Tài khoản đang chạy', downline: 'Tài khoản tuyến dưới', broker: 'Sàn', customer: 'Khách hàng',
     noAccount: 'Chưa có tài khoản nào gắn với email này', noAccountHint: 'Liên hệ Lion Bot để được gắn tài khoản giao dịch vào email của bạn.',
     back: '← Quay lại', balanceChart: 'Số dư theo ngày', months: 'Kết quả theo tháng', transfers: 'Nạp / rút gần đây',
     deposit: 'Nạp', withdraw: 'Rút', startBal: 'Vốn đầu tháng', none: 'Chưa có dữ liệu',
     treeTitle: 'Hệ thống của tôi', wholeBranch: 'Cả nhánh', ownAcc: 'TK trực tiếp', allAcc: 'TK cả nhánh', leader: 'Trưởng nhánh',
     updated: 'Cập nhật', minutesAgo: 'phút trước', unit: 'Đơn vị', loading: 'Đang tải…', theme: 'Giao diện',
-    noLinked: 'Email này chưa được gắn với khách hàng nào.', capitalCol: 'Vốn', search: 'Tìm tên, số TK, sàn…'
+    noLinked: 'Email này chưa được gắn với khách hàng nào.', capitalCol: 'Vốn', search: 'Tìm tên, số TK, sàn…',
+    pMonth: 'Tháng', pQuarter: 'Quý', pCustom: 'Tùy chọn ngày', capitalRun: 'Vốn đang chạy', profitPeriod: 'Lãi/lỗ trong kỳ', growthPeriod: 'Tăng trưởng trong kỳ',
+    depositPeriod: 'Nạp trong kỳ', withdrawPeriod: 'Rút', days: 'ngày có dữ liệu', cumPeriod: 'Lãi lũy kế trong kỳ (USD)',
+    role_admin: 'Quản lý', role_tech: 'Kỹ thuật', role_core: 'Core team', role_customer: 'Khách hàng', role_leader: 'Trưởng nhánh'
   },
   en: {
     login: 'Sign in', logout: 'Sign out', overview: 'Overview', accounts: 'Accounts', tree: 'Network', admin: 'Admin',
@@ -55,13 +58,16 @@ const DICT = {
     emailLabel: 'Email registered with Lion Bot', sendLink: 'Send sign-in link', sent: 'We sent a sign-in link to your email. Open it on this device and tap the link.',
     loginHint: 'No password needed. We email you a sign-in link.',
     myCapital: 'My capital', profitMonth: 'Profit this month', profitAll: 'Profit to date', growth: 'Monthly growth',
-    myAccounts: 'My accounts', downline: 'Downline accounts', broker: 'Broker', customer: 'Customer',
+    myAccounts: 'Running accounts', downline: 'Downline accounts', broker: 'Broker', customer: 'Customer',
     noAccount: 'No account is linked to this email yet', noAccountHint: 'Contact Lion Bot to link your trading account to your email.',
     back: '← Back', balanceChart: 'Daily balance', months: 'Monthly results', transfers: 'Recent deposits / withdrawals',
     deposit: 'Deposit', withdraw: 'Withdrawal', startBal: 'Start of month', none: 'No data yet',
     treeTitle: 'My network', wholeBranch: 'Whole branch', ownAcc: 'Direct accounts', allAcc: 'Branch accounts', leader: 'Leader',
     updated: 'Updated', minutesAgo: 'min ago', unit: 'Unit', loading: 'Loading…', theme: 'Theme',
-    noLinked: 'This email is not linked to a customer yet.', capitalCol: 'Capital', search: 'Search name, account, broker…'
+    noLinked: 'This email is not linked to a customer yet.', capitalCol: 'Capital', search: 'Search name, account, broker…',
+    pMonth: 'Month', pQuarter: 'Quarter', pCustom: 'Custom dates', capitalRun: 'Capital running', profitPeriod: 'P/L in period', growthPeriod: 'Growth in period',
+    depositPeriod: 'Deposits in period', withdrawPeriod: 'Withdrawals', days: 'days with data', cumPeriod: 'Cumulative P/L in period (USD)',
+    role_admin: 'Manager', role_tech: 'Technician', role_core: 'Core team', role_customer: 'Customer', role_leader: 'Branch leader'
   }
 };
 let lang = (() => { try { return localStorage.getItem('lb.lang') || 'vi'; } catch { return 'vi'; } })();

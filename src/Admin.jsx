@@ -113,63 +113,148 @@ function Customers({ editor, say }) {
 }
 
 // ------------------------------------------------------------ tài khoản
+// Gói thời gian sử dụng bot (giống bản Google Sheet)
+const PKGS = [['7 ngày', { d: 7 }], ['30 ngày', { d: 30 }], ['3 tháng', { m: 3 }], ['6 tháng', { m: 6 }], ['1 năm', { m: 12 }]];
+const addPkg = (start, pkg) => {
+  const p = PKGS.find(x => x[0] === pkg)?.[1]; if (!start || !p) return '';
+  const d = new Date(start + 'T00:00:00'); if (p.d) d.setDate(d.getDate() + p.d); else d.setMonth(d.getMonth() + p.m);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const today = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })).toISOString().slice(0, 10);
+const Sec = ({ children, sub }) => <div className="wide" style={{ gridColumn: '1/-1', borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}><b style={{ color: 'var(--ink)' }}>{children}</b>{sub && <span className="small muted"> · {sub}</span>}</div>;
+
 function AccountsAdmin({ editor, say }) {
   const [rows, load, err] = useTable('accounts', 'account_no');
-  const [custs] = useTable('customers', 'name');
-  const [vpsList] = useTable('vps', 'name');
+  const [custs, loadCusts] = useTable('customers', 'name');
+  const [vpsList, loadVps] = useTable('vps', 'name');
+  const [systems] = useTable('systems', 'name');
   const [status, setStatus] = useState({});
   const [edit, setEdit] = useState(null); const [saving, setSaving] = useState(false); const [q, setQ] = useState('');
   useEffect(() => {
     rpc('staff_ea_seen').then(data => { const m = {}; (data || []).forEach(r => { m[r.account_id] = r; }); setStatus(m); }).catch(() => {});
   }, [rows]);
+  const set = (k, v) => setEdit(e => {
+    const n = { ...e, [k]: v };
+    if ((k === 'package' || k === 'bot_start') && !e.endTouched) n.bot_end = addPkg(n.bot_start, n.package) || n.bot_end;
+    if (k === 'bot_end') n.endTouched = true;
+    if (k === 'bot_start' && (!e.open_date || e.open_date === e.bot_start)) n.open_date = v;
+    return n;
+  });
+  const openNew = () => setEdit({ cust: '', currency: 'USC', share_pct: 30, platform: 'MT5', status: 'active', package: '30 ngày', bot_name: 'LION', bot_version: 'V2',
+    bot_start: today(), bot_end: addPkg(today(), '30 ngày'), open_date: today(), vpsSel: '', nv_start: today(), nv_end: addPkg(today(), '30 ngày'), nv_spec: '2 vCPU 8GB' });
+  const openEdit = async a => {
+    const e = { ...a, cust: a.customer_id, vpsSel: a.vps_id || '', investor_pass: '', endTouched: true };
+    const { data } = await sb.from('account_secrets').select('investor_pass').eq('account_id', a.id).maybeSingle();
+    if (data) e.investor_pass = data.investor_pass || '';
+    setEdit(e);
+  };
   const save = async () => {
-    if (!edit.customer_id) return say('Chọn khách hàng');
-    if (!edit.account_no?.trim()) return say('Cần nhập số tài khoản');
+    const e = edit, n = v => (v === '' || v == null ? null : Number(v));
+    if (!e.cust) return say('Chọn khách hàng hoặc chọn "+ Khách mới"');
+    if (e.cust === '__new' && !e.nc_name?.trim()) return say('Nhập họ tên khách mới');
+    if (!e.account_no?.trim()) return say('Nhập số tài khoản');
+    if (e.vpsSel === '__new' && !e.nv_name?.trim()) return say('Nhập tên / IP VPS mới');
     setSaving(true);
-    const n = v => (v === '' || v == null ? null : Number(v));
-    const body = { customer_id: edit.customer_id, account_no: edit.account_no.trim(), broker: edit.broker || null, server: edit.server || null, platform: edit.platform || 'MT5',
-      currency: edit.currency || 'USD', share_pct: n(edit.share_pct) ?? 30, bot_name: edit.bot_name || null, package: edit.package || null,
-      bot_start: edit.bot_start || null, bot_end: edit.bot_end || null, status: edit.status || 'active', open_balance: n(edit.open_balance), open_date: edit.open_date || null, note: edit.note || null, vps_id: edit.vps_id || null };
-    const { error } = edit.id ? await sb.from('accounts').update(body).eq('id', edit.id) : await sb.from('accounts').insert(body);
-    setSaving(false); if (error) return say(error.message.includes('duplicate') ? 'Số tài khoản + server này đã có' : error.message); setEdit(null); load(); say('Đã lưu tài khoản');
+    try {
+      let customer_id = e.cust;
+      if (e.cust === '__new') {
+        const r = await sb.from('customers').insert({ name: e.nc_name.trim(), phone: e.nc_phone || null, email: e.nc_email?.trim().toLowerCase() || null, system_id: e.nc_sys || null }).select('id').single();
+        if (r.error) throw new Error(r.error.message.includes('duplicate') ? 'Email khách này đã có người dùng' : r.error.message); customer_id = r.data.id;
+      }
+      let vps_id = e.vpsSel || null;
+      if (e.vpsSel === '__new') {
+        const r = await sb.from('vps').insert({ name: e.nv_name.trim(), provider: e.nv_provider || null, spec: e.nv_spec || null, start_date: e.nv_start || null, end_date: e.nv_end || null, fee_usd: n(e.nv_fee) }).select('id').single();
+        if (r.error) throw new Error(r.error.message); vps_id = r.data.id;
+        if (e.nv_user || e.nv_pass) await sb.from('vps_secrets').upsert({ vps_id, login_user: e.nv_user || null, password: e.nv_pass || null });
+      }
+      const body = { customer_id, account_no: e.account_no.trim(), broker: e.broker?.trim() || null, server: e.server?.trim() || null, platform: e.platform || 'MT5',
+        currency: e.currency || 'USD', share_pct: n(e.share_pct) ?? 30, bot_name: e.bot_name || null, bot_version: e.bot_version || null, package: e.package || null,
+        bot_start: e.bot_start || null, bot_end: e.bot_end || null, status: e.status || 'active', open_balance: n(e.open_balance), open_date: e.open_date || null,
+        note: e.note || null, vps_id };
+      let id = e.id;
+      if (id) { const r = await sb.from('accounts').update(body).eq('id', id); if (r.error) throw r.error; }
+      else {
+        const r = await sb.from('accounts').insert(body).select('id').single(); if (r.error) throw r.error; id = r.data.id;
+        const { data: u } = await sb.auth.getUser();
+        await sb.from('renewals').insert({ kind: 'bot', account_id: id, action: 'Cài mới', package: body.package, from_date: body.bot_start, to_date: body.bot_end, done_by: u?.user?.email || null });
+      }
+      if (e.investor_pass || e.id) await sb.from('account_secrets').upsert({ account_id: id, investor_pass: e.investor_pass || null, updated_at: new Date().toISOString() });
+      setEdit(null); load(); loadCusts(); loadVps(); say(e.id ? 'Đã lưu tài khoản' : 'Đã thêm tài khoản. Bấm Chép để lấy mã EA.');
+    } catch (x) { say(String(x.message || x).includes('duplicate') ? 'Số tài khoản + server này đã có' : (x.message || String(x))); }
+    finally { setSaving(false); }
   };
   const copy = async v => { try { await navigator.clipboard.writeText(v); say('Đã chép mã'); } catch { say('Không chép được, hãy bôi đen để chép'); } };
   if (err) return <div className="card neg">{err}</div>;
   if (!rows) return <div className="empty">Đang tải…</div>;
   const cname = id => custs?.find(c => c.id === id)?.name || '—';
+  const sname = id => systems?.find(x => x.id === id)?.name || '';
+  const uniq = k => Array.from(new Set(rows.map(r => r[k]).filter(Boolean))).sort();
   const list = rows.filter(a => !q || (a.account_no + ' ' + cname(a.customer_id) + ' ' + (a.broker || '')).toLowerCase().includes(q.toLowerCase()));
+  const vUse = id => rows.filter(a => a.vps_id === id).length;
+  const e = edit;
   return (
     <section className="card">
       <div className="row"><div className="title grow">Tài khoản giao dịch ({rows.length})</div>
-        <label className="field" style={{ width: 'min(260px,100%)' }}><input id="acc-q" type="search" placeholder="Tìm số TK, khách, sàn…" value={q} onChange={e => setQ(e.target.value)} /></label>
-        {editor && <button className="btn pri" onClick={() => setEdit({ currency: 'USD', share_pct: 30, platform: 'MT5', status: 'active' })}>+ Thêm tài khoản</button>}</div>
-      <p className="small muted" style={{ margin: 0 }}>Mỗi tài khoản có một <b>mã khóa EA</b> riêng. Kỹ thuật dán mã này vào Inputs của EA trên đúng tài khoản đó.</p>
+        <label className="field" style={{ width: 'min(260px,100%)' }}><input id="acc-q" type="search" placeholder="Tìm số TK, khách, sàn…" value={q} onChange={ev => setQ(ev.target.value)} /></label>
+        {editor && <button className="btn pri" onClick={openNew}>+ Thêm tài khoản</button>}</div>
+      <p className="small muted" style={{ margin: 0 }}>Kỹ thuật nhập sau khi cài bot. Mỗi tài khoản có một <b>mã khóa EA</b> riêng: dán mã này vào Inputs của EA trên đúng tài khoản đó.</p>
       <div className="tbl"><table><thead><tr><th>Số TK</th><th>Khách</th><th>Sàn</th><th className="r">Chia</th><th>Dữ liệu EA</th><th>Mã khóa EA</th></tr></thead><tbody>
         {list.map(a => { const s = status[a.id]; return (
           <tr key={a.id}>
-            <td className={editor ? 'click num' : 'num'} onClick={() => editor && setEdit({ ...a })} style={{ cursor: editor ? 'pointer' : 'default' }}>{a.account_no}<div className="small muted">{a.currency}{a.status === 'stopped' ? ' · đã dừng' : ''}</div></td>
+            <td className={editor ? 'click num' : 'num'} onClick={() => editor && openEdit(a)} style={{ cursor: editor ? 'pointer' : 'default' }}>{a.account_no}<div className="small muted">{a.currency}{a.status === 'stopped' ? ' · đã dừng' : ''}</div></td>
             <td>{cname(a.customer_id)}{a.bot_end && <div className="small muted">Bot hết hạn {vnDate(a.bot_end)}</div>}</td><td>{a.broker || ''}<div className="small muted">{a.server || ''}</div></td><td className="r num">{fmt(a.share_pct, 0)}%</td>
             <td>{s?.last_seen ? <><span className={'pill ' + (s.stale_days >= 3 ? 'bad' : 'ok')}>{s.stale_days >= 3 ? 'Ngừng ' + s.stale_days + ' ngày' : 'Đang gửi'}</span><div className="small muted">Lần cuối {new Date(s.last_seen).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })}</div></> : <span className="pill mut">Chưa nhận</span>}</td>
             <td>{editor ? <span className="row" style={{ gap: 6 }}><span className="key">{a.ingest_key.slice(0, 8)}…</span><button className="btn sm" onClick={() => copy(a.ingest_key)}>Chép</button></span> : '—'}</td>
           </tr>); })}
       </tbody></table></div>
-      {edit && <Modal title={edit.id ? 'Sửa tài khoản' : 'Thêm tài khoản'} onClose={() => setEdit(null)} onSave={save} saving={saving}>
+      <datalist id="dl-brokers">{uniq('broker').map(x => <option key={x} value={x} />)}</datalist>
+      <datalist id="dl-servers">{uniq('server').map(x => <option key={x} value={x} />)}</datalist>
+      <datalist id="dl-bots">{uniq('bot_name').map(x => <option key={x} value={x} />)}</datalist>
+      {e && <Modal title={e.id ? 'Sửa tài khoản · ' + e.account_no : 'Thêm tài khoản sau khi cài bot'} onClose={() => setEdit(null)} onSave={save} saving={saving}>
         <div className="form">
-          <F label="Khách hàng" wide><select id="acc-cus" value={edit.customer_id || ''} onChange={e => setEdit({ ...edit, customer_id: e.target.value })}><option value="">— Chọn —</option>{(custs || []).map(c => <option key={c.id} value={c.id}>{c.name}{c.email ? ' · ' + c.email : ''}</option>)}</select></F>
-          <F label="Số tài khoản"><input id="acc-no" value={edit.account_no || ''} onChange={e => setEdit({ ...edit, account_no: e.target.value })} inputMode="numeric" /></F>
-          <F label="Sàn"><input id="acc-broker" value={edit.broker || ''} onChange={e => setEdit({ ...edit, broker: e.target.value })} /></F>
-          <F label="Server"><input id="acc-server" value={edit.server || ''} onChange={e => setEdit({ ...edit, server: e.target.value })} /></F>
-          <F label="Đơn vị tiền"><select id="acc-cur" value={edit.currency || 'USD'} onChange={e => setEdit({ ...edit, currency: e.target.value })}><option>USD</option><option value="USC">USC (tài khoản cent)</option></select></F>
-          <F label="Công ty nhận (%)"><input id="acc-pct" type="number" min="0" max="100" step="0.5" value={edit.share_pct ?? 30} onChange={e => setEdit({ ...edit, share_pct: e.target.value })} /></F>
-          <F label="Tên bot"><input id="acc-bot" value={edit.bot_name || ''} onChange={e => setEdit({ ...edit, bot_name: e.target.value })} /></F>
-          <F label="Ngày bắt đầu bot"><input id="acc-start" type="date" value={edit.bot_start || ''} onChange={e => setEdit({ ...edit, bot_start: e.target.value })} /></F>
-          <F label="Ngày hết hạn bot"><input id="acc-end" type="date" value={edit.bot_end || ''} onChange={e => setEdit({ ...edit, bot_end: e.target.value })} /></F>
-          <F label="Số dư ban đầu (đơn vị TK)"><input id="acc-ob" type="number" step="0.01" value={edit.open_balance ?? ''} onChange={e => setEdit({ ...edit, open_balance: e.target.value })} /></F>
-          <F label="Ngày chốt số dư"><input id="acc-od" type="date" value={edit.open_date || ''} onChange={e => setEdit({ ...edit, open_date: e.target.value })} /></F>
-          <F label="VPS"><select id="acc-vps" value={edit.vps_id || ''} onChange={e => setEdit({ ...edit, vps_id: e.target.value })}><option value="">— Chưa gán —</option>{(vpsList || []).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></F>
-          <F label="Trạng thái"><select id="acc-status" value={edit.status || 'active'} onChange={e => setEdit({ ...edit, status: e.target.value })}><option value="active">Đang chạy</option><option value="stopped">Đã dừng</option></select></F>
-          <F label="Ghi chú" wide><input id="acc-note" value={edit.note || ''} onChange={e => setEdit({ ...edit, note: e.target.value })} /></F>
-          {edit.id && <F label="Mã khóa EA (dán vào Inputs của EA)" wide><span className="key">{edit.ingest_key}</span></F>}
+          <Sec>1. Khách hàng</Sec>
+          <F label="Khách" wide><select id="acc-cus" value={e.cust || ''} onChange={ev => set('cust', ev.target.value)}>
+            <option value="">— Chọn khách —</option><option value="__new">+ Khách mới</option>
+            {(custs || []).map(c => <option key={c.id} value={c.id}>{c.name}{sname(c.system_id) ? ' · ' + sname(c.system_id) : ''}{c.email ? ' · ' + c.email : ''}</option>)}</select></F>
+          {e.cust === '__new' && <>
+            <F label="Họ tên khách"><input id="nc-name" value={e.nc_name || ''} onChange={ev => set('nc_name', ev.target.value)} /></F>
+            <F label="Số điện thoại / Zalo"><input id="nc-phone" value={e.nc_phone || ''} onChange={ev => set('nc_phone', ev.target.value)} /></F>
+            <F label="Thuộc nhánh hệ thống"><select id="nc-sys" value={e.nc_sys || ''} onChange={ev => set('nc_sys', ev.target.value)}><option value="">— Chưa gán —</option>{(systems || []).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></F>
+            <F label="Email đăng nhập của khách (để khách xem kết quả)" wide><input id="nc-email" type="email" value={e.nc_email || ''} onChange={ev => set('nc_email', ev.target.value)} /></F>
+          </>}
+          <Sec>2. Tài khoản giao dịch</Sec>
+          <F label="Số tài khoản (ID)"><input id="acc-no" value={e.account_no || ''} onChange={ev => set('account_no', ev.target.value)} inputMode="numeric" /></F>
+          <F label="Sàn"><input id="acc-broker" list="dl-brokers" placeholder="Exness, GTC, Vantage…" value={e.broker || ''} onChange={ev => set('broker', ev.target.value)} /></F>
+          <F label="Server sàn"><input id="acc-server" list="dl-servers" placeholder="Exness-MT5Real25" value={e.server || ''} onChange={ev => set('server', ev.target.value)} /></F>
+          <F label="Nền tảng"><select id="acc-platform" value={e.platform || 'MT5'} onChange={ev => set('platform', ev.target.value)}><option>MT5</option><option>MT4</option></select></F>
+          <F label="Đơn vị tiền tài khoản"><select id="acc-cur" value={e.currency || 'USD'} onChange={ev => set('currency', ev.target.value)}><option value="USD">USD</option><option value="USC">USC (tài khoản cent)</option></select></F>
+          <F label="Công ty nhận (% lợi nhuận)"><input id="acc-pct" type="number" min="0" max="100" step="0.5" value={e.share_pct ?? 30} onChange={ev => set('share_pct', ev.target.value)} /></F>
+          <F label={'Số dư ban đầu (' + (e.currency || 'USD') + ')'}><input id="acc-ob" type="number" step="0.01" placeholder="Số dư lúc cài bot" value={e.open_balance ?? ''} onChange={ev => set('open_balance', ev.target.value)} /></F>
+          <F label="Ngày chốt số dư ban đầu"><input id="acc-od" type="date" value={e.open_date || ''} onChange={ev => set('open_date', ev.target.value)} /></F>
+          <F label="Passview (mật khẩu xem / Investor) · quản lý, kỹ thuật, core xem"><input id="acc-pv" autoComplete="off" placeholder="Chỉ xem, không vào lệnh được" value={e.investor_pass || ''} onChange={ev => set('investor_pass', ev.target.value)} /></F>
+          <Sec>3. Bot & thời gian sử dụng</Sec>
+          <F label="Tên bot"><input id="acc-bot" list="dl-bots" value={e.bot_name || ''} onChange={ev => set('bot_name', ev.target.value)} /></F>
+          <F label="Phiên bản"><input id="acc-ver" value={e.bot_version || ''} onChange={ev => set('bot_version', ev.target.value)} /></F>
+          <F label="Thời gian sử dụng"><select id="acc-pkg" value={e.package || ''} onChange={ev => set('package', ev.target.value)}><option value="">— Chọn gói —</option>{PKGS.map(([l]) => <option key={l}>{l}</option>)}</select></F>
+          <F label="Ngày bắt đầu"><input id="acc-start" type="date" value={e.bot_start || ''} onChange={ev => set('bot_start', ev.target.value)} /></F>
+          <F label="Ngày hết hạn bot (tự tính theo gói)"><input id="acc-end" type="date" value={e.bot_end || ''} onChange={ev => set('bot_end', ev.target.value)} /></F>
+          <F label="Trạng thái"><select id="acc-status" value={e.status || 'active'} onChange={ev => set('status', ev.target.value)}><option value="active">Đang chạy</option><option value="stopped">Đã dừng</option></select></F>
+          <Sec>4. VPS</Sec>
+          <F label="VPS chạy bot" wide><select id="acc-vps" value={e.vpsSel || ''} onChange={ev => set('vpsSel', ev.target.value)}>
+            <option value="">Chưa gán VPS</option>{(vpsList || []).map(v => <option key={v.id} value={v.id}>{v.name}{v.provider ? ' · ' + v.provider : ''} · đang chạy {vUse(v.id)} TK{v.end_date ? ' · hết hạn ' + vnDate(v.end_date) : ''}</option>)}
+            <option value="__new">+ VPS mới</option></select></F>
+          {e.vpsSel === '__new' && <>
+            <F label="Tên / IP:port"><input id="nv-name" value={e.nv_name || ''} onChange={ev => set('nv_name', ev.target.value)} /></F>
+            <F label="Nhà cung cấp"><input id="nv-provider" value={e.nv_provider || ''} onChange={ev => set('nv_provider', ev.target.value)} /></F>
+            <F label="Cấu hình"><input id="nv-spec" value={e.nv_spec || ''} onChange={ev => set('nv_spec', ev.target.value)} /></F>
+            <F label="Phí mỗi kỳ (USD)"><input id="nv-fee" type="number" step="0.01" value={e.nv_fee ?? ''} onChange={ev => set('nv_fee', ev.target.value)} /></F>
+            <F label="Ngày thuê"><input id="nv-start" type="date" value={e.nv_start || ''} onChange={ev => set('nv_start', ev.target.value)} /></F>
+            <F label="Ngày hết hạn VPS"><input id="nv-end" type="date" value={e.nv_end || ''} onChange={ev => set('nv_end', ev.target.value)} /></F>
+            <F label="User đăng nhập VPS"><input id="nv-user" autoComplete="off" value={e.nv_user || ''} onChange={ev => set('nv_user', ev.target.value)} /></F>
+            <F label="Mật khẩu VPS (để trống nếu chưa có)"><input id="nv-pass" autoComplete="off" value={e.nv_pass || ''} onChange={ev => set('nv_pass', ev.target.value)} /></F>
+          </>}
+          <F label="Ghi chú cài đặt" wide><textarea id="acc-note" rows={2} value={e.note || ''} onChange={ev => set('note', ev.target.value)} /></F>
+          {e.id && <F label="Mã khóa EA (dán vào Inputs của EA)" wide><span className="row" style={{ gap: 6 }}><span className="key">{e.ingest_key}</span><button type="button" className="btn sm" onClick={() => copy(e.ingest_key)}>Chép</button></span></F>}
         </div>
       </Modal>}
     </section>

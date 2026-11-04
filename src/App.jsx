@@ -73,6 +73,7 @@ export default function App() {
         </nav>}
         <button className="btn sm" onClick={() => { setLang(getLang() === 'vi' ? 'en' : 'vi'); document.documentElement.lang = getLang(); force(x => x + 1); }} aria-label="Language">{getLang() === 'vi' ? 'EN' : 'VI'}</button>
         <button className="btn sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('theme')}>{theme === 'dark' ? '☀' : '☾'}</button>
+        {session && me && <span className="pill brand" style={{ fontSize: 11 }} title={me.email}>{t('role_' + (me.role === 'customer' && me.is_leader ? 'leader' : me.role))}</span>}
         {session ? <button className="btn sm" onClick={() => sb.auth.signOut().then(() => { location.hash = '/'; })}>{t('logout')}</button>
           : <a className="btn sm pri" href="#/login">{t('login')}</a>}
       </div></header>
