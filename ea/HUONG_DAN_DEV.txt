@@ -1,0 +1,51 @@
+﻿LION BOT · KẾT NỐI EA VỀ WEB · v1.1.0 (04/11/2026)
+Web: https://lion-bot.pages.dev
+==================================================================
+
+FILE TRONG GÓI
+  LionBot_Send.mqh            Thư viện gửi dữ liệu. Chép vào  MQL5\Include\
+  LionBot_Example.mq5         EA ví dụ: chỉ ra 3 chỗ cần thêm vào EA thật.
+  LionBot_TestConnection.mq5  Script kiểm tra kết nối. Chép vào  MQL5\Scripts\
+
+------------------------------------------------------------------
+A. DEV: GẮN VÀO EA (1 lần)
+------------------------------------------------------------------
+1. Thêm ở đầu EA:            #include <LionBot_Send.mqh>
+2. Trong OnInit():           EventSetTimer(60);   (EA đã có timer thì giữ nguyên)
+3. Trong OnTimer():          LB_Auto();
+   - Chỉ tính lệnh của bot:  LB_Auto(MagicNumber);
+   - Chỉ tính 1 mã:          LB_Auto(-1, "XAUUSD");
+4. Biên dịch lại EA. Không đụng tới logic vào lệnh.
+
+LB_Auto() tự làm:
+  - Gửi số dư, equity, PNL chưa chốt, số lệnh mở, DD: 5 phút/lần khi có lệnh, 30 phút/lần khi không có lệnh.
+  - Sang ngày mới (giờ sàn) tự tổng kết ngày hôm trước từ lịch sử MT5: profit, swap, phí + commission,
+    lots, số lệnh đóng, DD sâu nhất ngày, và từng giao dịch nạp / rút / bonus / credit (theo mã deal).
+  - Lỗi mạng: tự thử lại sau 10 phút, tự bù các ngày bị lỡ (tối đa 7 ngày). Gửi trùng ngày thì web ghi đè.
+  - Mã khóa để trống = không gửi gì, EA vẫn chạy bình thường.
+
+Nếu EA đã tự tính "TỔNG KẾT NGÀY" (đang gửi Telegram) và muốn gửi đúng số đó:
+  LB_SendDaily(ngayTongKet, profit, swap, phi, tongLots, AccountInfoDouble(ACCOUNT_BALANCE), soLenh, ddMaxPct);
+  (phi là số âm nếu bị trừ; soLenh, ddMaxPct không có thì truyền -1). Trạng thái: LB_SendStatus(ddPct);
+  Gửi lại một ngày: LB_ResendDay(D'2026.11.03');
+
+Lưu ý kỹ thuật:
+  - WebRequest chạy đồng bộ (tối đa ~10 giây, thử lại 3 lần): chỉ gọi trong OnTimer, không gọi trong OnTick.
+  - Không dùng được trong indicator, chỉ EA / script.
+  - Ngày theo GIỜ SÀN (TimeCurrent), không theo giờ Việt Nam.
+  - EA cũ đang gửi Google Sheet (BotVangDesk_SendDaily.mqh) có thể giữ song song, tên hàm không trùng.
+
+------------------------------------------------------------------
+B. KỸ THUẬT: KHI GẮN EA LÊN TỪNG TÀI KHOẢN
+------------------------------------------------------------------
+1. Web Lion Bot → Quản trị → Tài khoản & mã EA → thêm tài khoản (nếu chưa có) → bấm "Chép" mã khóa EA.
+2. MT5: Tools > Options > Expert Advisors > tích "Allow WebRequest for listed URL" > thêm:
+       https://sypkzdcazdzekmgmgfhu.supabase.co
+3. Gắn EA, ở tab Inputs dán mã vào ô "Lion Bot: mã khóa EA của tài khoản này" (InpLB_Key).
+   Ô địa chỉ máy chủ giữ nguyên. Mỗi tài khoản một mã khác nhau.
+4. Kiểm tra: kéo script LionBot_TestConnection vào chart, dán cùng mã → OK.
+   ✓ "Kết nối OK"                    → xong. Trên web cột "Dữ liệu EA" chuyển "Đang gửi".
+   ✗ "chưa cho phép WebRequest"      → làm lại bước 2.
+   ✗ "Mã khóa EA sai"                → chép lại mã đúng tài khoản.
+
+Tab Experts của MT5 có log bắt đầu bằng "LionBot:" để dò lỗi.
