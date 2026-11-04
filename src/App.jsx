@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { sb, rpc, t, getLang, setLang, VERSION } from './lib.js';
+import { sb, rpc, t, getLang, setLang, VERSION, authReady, authError } from './lib.js';
 import Public from './Public.jsx';
 import { Overview, Accounts, AccountDetail, Tree } from './Portal.jsx';
 import Admin from './Admin.jsx';
@@ -11,10 +11,11 @@ function useHash() {
 }
 
 function Login() {
-  const [email, setEmail] = useState(''); const [state, setState] = useState(''); const [err, setErr] = useState('');
+  const [email, setEmail] = useState(''); const [state, setState] = useState('');
+  const [err, setErr] = useState(() => (authError ? (getLang() === 'en' ? 'Sign-in link failed or expired: ' : 'Link đăng nhập lỗi hoặc đã hết hạn, vui lòng gửi lại: ') + authError : ''));
   const submit = async e => {
     e.preventDefault(); setErr(''); setState('sending');
-    const { error } = await sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: location.origin + '/#/app' } });
+    const { error } = await sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: location.origin + '/' } });
     if (error) { setErr(error.message); setState(''); } else setState('sent');
   };
   return (
@@ -39,7 +40,7 @@ export default function App() {
 
   useEffect(() => { document.documentElement.dataset.theme = theme; document.documentElement.lang = getLang(); try { localStorage.setItem('lb.theme', theme); } catch {} }, [theme]);
   useEffect(() => {
-    sb.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
+    authReady.then(() => sb.auth.getSession()).then(({ data }) => { setSession(data.session); setReady(true); });
     const { data } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => data.subscription.unsubscribe();
   }, []);

@@ -1,10 +1,30 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
 });
+
+// Link đăng nhập trả mã về sau dấu # (vd: /#access_token=... hoặc /#/app#access_token=...).
+// Web dùng # để chuyển trang, nên đọc mã TRƯỚC khi router chạy, rồi đưa về #/app.
+export let authError = '';
+export const authReady = (() => {
+  const h = location.hash || '';
+  const i = h.search(/(access_token|error_description|error)=/);
+  if (i < 0) return Promise.resolve();
+  const p = new URLSearchParams(h.slice(i));
+  const at = p.get('access_token'), rt = p.get('refresh_token');
+  if (at && rt) {
+    history.replaceState(null, '', location.pathname + '#/app');
+    return sb.auth.setSession({ access_token: at, refresh_token: rt })
+      .then(({ error }) => { if (error) authError = error.message; })
+      .catch(e => { authError = String(e && e.message || e); });
+  }
+  authError = p.get('error_description') || p.get('error') || 'Link không hợp lệ';
+  history.replaceState(null, '', location.pathname + '#/login');
+  return Promise.resolve();
+})();
 
 const DICT = {
   vi: {
