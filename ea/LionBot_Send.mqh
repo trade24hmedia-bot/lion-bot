@@ -1,5 +1,5 @@
 ﻿//+------------------------------------------------------------------+
-//| LionBot_Send.mqh  ·  v1.1.0  (04/11/2026)                         |
+//| LionBot_Send.mqh  ·  v1.2.0  (06/11/2026)                         |
 //| Gửi kết quả giao dịch của tài khoản MT5 về web Lion Bot           |
 //| https://lion-bot.pages.dev  (máy chủ: Supabase)                   |
 //+------------------------------------------------------------------+
@@ -24,6 +24,14 @@
 //   LB_SendStatus(ddPctHienTai);   // trong OnTimer 2–5 phút/lần; không có DD thì truyền -1
 //   Gửi lại cùng một ngày: máy chủ ghi đè, không cộng trùng. Dùng cả LB_Auto và gửi thủ công cũng không sao.
 //
+// MỚI v1.2.0 — CẢNH BÁO TIN TỨC / BIẾN ĐỘNG (tùy chọn, dev quyết định có dùng hay không):
+//   int lv = LB_RiskLevel();     // mức cảnh báo của web Lion Bot: 0 xanh, 1 vàng, 2 cam, 3 đỏ (-1 = chưa lấy được)
+//                                // tự gọi máy chủ tối đa 1 lần/phút, gọi trong OnTimer.
+//   double lot = LB_RiskLot(lotGoc);   // đỏ → 0 (không vào lệnh mới), cam → 50% lot, còn lại giữ nguyên
+//   if(LB_NewsWindow(30, 30)) ...      // đang trong ±30 phút quanh tin ĐỎ của USD trên lịch kinh tế MT5
+//   Gợi ý: trước khi mở lệnh mới:  if(LB_RiskLevel() >= 3 || LB_NewsWindow(30, 30)) return;  // tạm dừng vào lệnh
+//   (Web cảnh báo đỏ khi: giá vàng chạy ≥0,35%/15 phút hoặc ≥0,7%/60 phút, ±30 phút quanh tin đỏ Mỹ, tin nóng ≥70 điểm)
+//
 // KỸ THUẬT ĐIỀN KHI GẮN EA LÊN TỪNG TÀI KHOẢN:
 //   - InpLB_Key: MÃ KHÓA EA RIÊNG của tài khoản (web Lion Bot → Quản trị → Tài khoản & mã EA → Chép).
 //     Mỗi tài khoản một mã. Để trống = không gửi gì (EA vẫn chạy bình thường).
@@ -41,7 +49,7 @@ input int    InpLB_StatusMin = 5;                                          // Li
 
 // Khóa công khai (anon) của dự án: chỉ gọi được 2 hàm nhận dữ liệu, không đọc được dữ liệu nào.
 #define LB_ANON "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cGt6ZGNhemR6ZWttZ21nZmh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3Nzg1MDIsImV4cCI6MjEwOTM1NDUwMn0.W81InK_7Gpo1U14sl76cVia5DXZx9owTZZskX8GAU3Q"
-#define LB_VERSION "1.1.0"
+#define LB_VERSION "1.2.0"
 
 string LB_N(const double v) { return DoubleToString(v, 2); }
 string LB_E(string s) { StringReplace(s, "\\", "\\\\"); StringReplace(s, "\"", "\\\""); return s; }
@@ -235,6 +243,64 @@ bool LB_Auto(const long magic = -1, const string sym = "")
       }
    }
    return sent;
+}
+
+// ------------------------------------------------------------ cảnh báo tin tức / biến động (v1.2.0)
+int    LB_RiskCache = -1;
+string LB_RiskAdvice = "";   // lời khuyên của web (tiếng Việt)
+int LB_RiskLevel()
+{
+   static datetime lastCall = 0;
+   datetime now = TimeLocal();
+   if(lastCall != 0 && now - lastCall < 60) return LB_RiskCache;
+   lastCall = now;
+   string url = LB_Trim(InpLB_Url);
+   char data[], result[]; string resHeaders;
+   StringToCharArray("{}", data, 0, WHOLE_ARRAY, CP_UTF8); ArrayResize(data, 2);
+   string headers = "Content-Type: application/json\r\napikey: " + LB_ANON + "\r\nAuthorization: Bearer " + LB_ANON + "\r\n";
+   ResetLastError();
+   int code = WebRequest("POST", url + "/rest/v1/rpc/market_status", headers, 5000, data, result, resHeaders);
+   if(code != 200) { if(code == -1) PrintFormat("LionBot: LB_RiskLevel loi WebRequest %d", GetLastError()); return LB_RiskCache; }
+   string reply = CharArrayToString(result, 0, WHOLE_ARRAY, CP_UTF8);
+   int i = StringFind(reply, "\"level_num\"");
+   if(i < 0) return LB_RiskCache;
+   int c = StringFind(reply, ":", i);
+   int lv = (int)StringToInteger(LB_Trim(StringSubstr(reply, c + 1, 3)));
+   int a = StringFind(reply, "\"advice\""), q1 = a >= 0 ? StringFind(reply, "\"", StringFind(reply, ":", a) + 1) : -1;
+   if(q1 >= 0) { int q2 = StringFind(reply, "\"", q1 + 1); if(q2 > q1) LB_RiskAdvice = StringSubstr(reply, q1 + 1, q2 - q1 - 1); }
+   if(lv != LB_RiskCache && LB_RiskCache >= 0) PrintFormat("LionBot: muc canh bao doi %d -> %d", LB_RiskCache, lv);
+   LB_RiskCache = lv;
+   return lv;
+}
+
+// Lot gợi ý theo mức cảnh báo: đỏ → 0 (không vào lệnh mới), cam → 50%, còn lại giữ nguyên.
+double LB_RiskLot(const double baseLot, const double orangeFactor = 0.5)
+{
+   int lv = LB_RiskLevel();
+   if(lv >= 3) return 0;
+   double lot = lv == 2 ? baseLot * orangeFactor : baseLot;
+   double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP), mn = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   if(step > 0) lot = MathFloor(lot / step) * step;
+   if(lot < mn) lot = lv == 2 ? mn : lot;
+   return NormalizeDouble(lot, 2);
+}
+
+// true nếu đang trong khoảng [tin - minBefore, tin + minAfter] của tin quan trọng trên lịch kinh tế MT5.
+// Mặc định: tin ĐỎ (High) của USD. Không chạy trong Strategy Tester (MT5 không có lịch ở đó).
+bool LB_NewsWindow(const int minBefore = 30, const int minAfter = 30, const string currency = "USD",
+                   const ENUM_CALENDAR_EVENT_IMPORTANCE minImp = CALENDAR_IMPORTANCE_HIGH)
+{
+   if(MQLInfoInteger(MQL_TESTER)) return false;
+   datetime now = TimeTradeServer();
+   MqlCalendarValue vals[];
+   int n = CalendarValueHistory(vals, now - minAfter * 60, now + minBefore * 60, NULL, currency);
+   for(int i = 0; i < n; i++)
+   {
+      MqlCalendarEvent ev;
+      if(!CalendarEventById(vals[i].event_id, ev)) continue;
+      if(ev.importance >= minImp) return true;
+   }
+   return false;
 }
 
 // Gửi lại một ngày bất kỳ (ví dụ sửa dữ liệu): LB_ResendDay(D'2026.11.03');

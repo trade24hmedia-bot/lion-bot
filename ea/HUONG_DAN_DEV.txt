@@ -1,4 +1,4 @@
-﻿LION BOT · KẾT NỐI EA VỀ WEB · v1.1.0 (04/11/2026)
+﻿LION BOT · KẾT NỐI EA VỀ WEB · v1.2.0 (06/11/2026)
 Web: https://lion-bot.pages.dev
 ==================================================================
 
@@ -49,3 +49,19 @@ B. KỸ THUẬT: KHI GẮN EA LÊN TỪNG TÀI KHOẢN
    ✗ "Mã khóa EA sai"                → chép lại mã đúng tài khoản.
 
 Tab Experts của MT5 có log bắt đầu bằng "LionBot:" để dò lỗi.
+
+------------------------------------------------------------------
+C. (MỚI v1.2.0, TÙY CHỌN) TỰ GIẢM VOL / DỪNG VÀO LỆNH KHI CÓ TIN MẠNH
+------------------------------------------------------------------
+Web Lion Bot có mục Tin tức: chấm điểm tin vàng, lịch tin đỏ/cam, phát hiện giá chạy mạnh,
+và đưa ra mức cảnh báo 0 XANH · 1 VÀNG · 2 CAM · 3 ĐỎ. EA đọc được mức này:
+
+  Trong OnTimer:   LB_RiskLevel();                 // cập nhật, tối đa 1 lần/phút
+  Trước khi mở lệnh mới (OnTick):
+     if(LB_RiskCache >= 3 || LB_NewsWindow(30, 30)) return;   // ĐỎ hoặc ±30 phút quanh tin đỏ USD (lịch MT5): không vào lệnh
+     double lot = LB_RiskLot(lotGoc);                         // CAM → 50% lot; ĐỎ → 0
+
+  LB_NewsWindow(phutTruoc, phutSau, "USD", CALENDAR_IMPORTANCE_HIGH) dùng lịch kinh tế có sẵn trong MT5
+  (tin đỏ = HIGH, tin cam = MODERATE). Không chạy trong Strategy Tester.
+  LB_RiskAdvice: lời khuyên tiếng Việt của web (in log / Comment nếu muốn).
+  Lệnh đang mở KHÔNG bị đóng tự động — đóng hay giữ là quyết định của chiến lược / người vận hành.

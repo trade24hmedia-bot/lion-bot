@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.5.0';
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
 });
@@ -46,7 +46,7 @@ const DICT = {
     noLinked: 'Email này chưa được gắn với khách hàng nào.', capitalCol: 'Vốn', search: 'Tìm tên, số TK, sàn…',
     pMonth: 'Tháng', pQuarter: 'Quý', pCustom: 'Tùy chọn ngày', capitalRun: 'Vốn đang chạy', profitPeriod: 'Lãi/lỗ trong kỳ', growthPeriod: 'Tăng trưởng trong kỳ',
     depositPeriod: 'Nạp trong kỳ', withdrawPeriod: 'Rút', days: 'ngày có dữ liệu', cumPeriod: 'Lãi lũy kế trong kỳ (USD)',
-    role_admin: 'Quản lý', role_tech: 'Kỹ thuật', role_core: 'Core team', role_customer: 'Khách hàng', role_leader: 'Trưởng nhánh', scopeAll: 'Tất cả tài khoản', scopeMine: 'Nhánh của tôi', branch: 'Nhánh', hidden: 'Khách khác'
+    role_admin: 'Quản lý', role_tech: 'Kỹ thuật', role_core: 'Core team', role_customer: 'Khách hàng', role_leader: 'Trưởng nhánh', news: 'Tin tức', scopeAll: 'Tất cả tài khoản', scopeMine: 'Nhánh của tôi', branch: 'Nhánh', hidden: 'Khách khác'
   },
   en: {
     login: 'Sign in', logout: 'Sign out', overview: 'Overview', accounts: 'Accounts', tree: 'Network', admin: 'Admin',
@@ -67,7 +67,7 @@ const DICT = {
     noLinked: 'This email is not linked to a customer yet.', capitalCol: 'Capital', search: 'Search name, account, broker…',
     pMonth: 'Month', pQuarter: 'Quarter', pCustom: 'Custom dates', capitalRun: 'Capital running', profitPeriod: 'P/L in period', growthPeriod: 'Growth in period',
     depositPeriod: 'Deposits in period', withdrawPeriod: 'Withdrawals', days: 'days with data', cumPeriod: 'Cumulative P/L in period (USD)',
-    role_admin: 'Manager', role_tech: 'Technician', role_core: 'Core team', role_customer: 'Customer', role_leader: 'Branch leader', scopeAll: 'All accounts', scopeMine: 'My network', branch: 'Branch', hidden: 'Other customer'
+    role_admin: 'Manager', role_tech: 'Technician', role_core: 'Core team', role_customer: 'Customer', role_leader: 'Branch leader', news: 'News', scopeAll: 'All accounts', scopeMine: 'My network', branch: 'Branch', hidden: 'Other customer'
   }
 };
 let lang = (() => { try { return localStorage.getItem('lb.lang') || 'vi'; } catch { return 'vi'; } })();

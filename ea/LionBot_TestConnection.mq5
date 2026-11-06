@@ -1,11 +1,11 @@
 ﻿//+------------------------------------------------------------------+
-//| LionBot_TestConnection.mq5 · v1.1.0                               |
+//| LionBot_TestConnection.mq5 · v1.2.0                               |
 //| Script kiểm tra kết nối Lion Bot trên một tài khoản.               |
 //| Kéo script vào chart → dán mã khóa EA vào InpLB_Key → OK.           |
 //| Kết quả hiện ở cửa sổ Alert và tab Experts.                        |
 //+------------------------------------------------------------------+
 #property script_show_inputs
-#property version   "1.10"
+#property version   "1.20"
 
 #include <LionBot_Send.mqh>
 
@@ -29,6 +29,10 @@ void OnStart()
    string msg = "Lion Bot ✓ Kết nối OK cho TK " + acc + ". Web đã nhận số dư / equity.";
    if(InpSendYesterday)
       msg += LB_ResendDay(TimeCurrent() - 86400) ? " Đã gửi kết quả hôm qua." : " Gửi kết quả hôm qua lỗi: " + LB_LastReply;
+   int lv = LB_RiskLevel();
+   string names[] = {"XANH", "VANG", "CAM", "DO"};
+   msg += lv >= 0 && lv <= 3 ? " Mức cảnh báo tin tức hiện tại: " + names[lv] + "." : " (Chưa đọc được mức cảnh báo tin tức.)";
+   if(LB_NewsWindow(30, 30)) msg += " Đang trong ±30 phút quanh tin đỏ USD (lịch MT5).";
    Alert(msg);
 }
 //+------------------------------------------------------------------+

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { sb, rpc, t, getLang, setLang, VERSION, authReady, authError } from './lib.js';
 import Public from './Public.jsx';
+import { News, AlertBanner, useMarketStatus } from './News.jsx';
 import { Overview, Accounts, AccountDetail, Tree } from './Portal.jsx';
 import Admin from './Admin.jsx';
 
@@ -47,11 +48,13 @@ export default function App() {
   const loadMe = useCallback(async () => { if (!session) { setMe(null); return; } try { setMe(await rpc('portal_me')); } catch { setMe(null); } }, [session]);
   useEffect(() => { loadMe(); }, [loadMe]);
 
+  const mst = useMarketStatus();
   const staff = me && ['admin', 'tech', 'core'].includes(me.role);
   const route = hash.split('/').filter(Boolean);
   const inApp = route[0] === 'app' || route[0] === 'admin';
   let page;
   if (!ready) page = <div className="wrap empty">{t('loading')}</div>;
+  else if (route[0] === 'news') page = <News />;
   else if (route[0] === 'login') page = session ? <Redirect to="/app" /> : <Login />;
   else if (inApp && !session) page = <Login />;
   else if (route[0] === 'app' && route[1] === 'a' && route[2]) page = <AccountDetail id={route[2]} />;
@@ -66,17 +69,19 @@ export default function App() {
     <>
       <header className="top"><div className="wrap">
         <a className="logo" href="#/" title="Trang chủ"><img src="/logo-128.png" alt="Lion Bot" width="40" height="40" /><b>LION BOT</b></a>
-        {session && <nav className="tabs">
-          {tab('/app', t('overview'))}{tab('/app/accounts', t('accounts'))}
+        <nav className="tabs">
+          {session && <>{tab('/app', t('overview'))}{tab('/app/accounts', t('accounts'))}</>}
+          {tab('/news', t('news'))}
           {(me?.is_leader || staff) && tab('/app/tree', t('tree'))}
           {staff && tab('/admin', t('admin'))}
-        </nav>}
+        </nav>
         <button className="btn sm" onClick={() => { setLang(getLang() === 'vi' ? 'en' : 'vi'); document.documentElement.lang = getLang(); force(x => x + 1); }} aria-label="Language">{getLang() === 'vi' ? 'EN' : 'VI'}</button>
         <button className="btn sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('theme')}>{theme === 'dark' ? '☀' : '☾'}</button>
         {session && me && <span className="pill brand" style={{ fontSize: 11 }} title={me.email}>{t('role_' + (me.role === 'customer' && me.is_leader ? 'leader' : me.role))}</span>}
         {session ? <button className="btn sm" onClick={() => sb.auth.signOut().then(() => { location.hash = '/'; })}>{t('logout')}</button>
           : <a className="btn sm pri" href="#/login">{t('login')}</a>}
       </div></header>
+      {route[0] !== 'news' && <AlertBanner st={mst} />}
       {page}
       <footer className="wrap small muted" style={{ paddingBottom: 24 }}>Lion Bot · v{VERSION}</footer>
     </>
