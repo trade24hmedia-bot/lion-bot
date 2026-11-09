@@ -33,14 +33,20 @@ export default function Admin({ me, sub }) {
 }
 
 // ------------------------------------------------------------ hệ thống
+const shareUrl = tk => location.origin + '/#/b/' + tk;
 function Systems({ editor, say }) {
   const [rows, load, err] = useTable('systems', 'name');
   const [custs] = useTable('customers', 'name');
+  const [accs] = useTable('accounts', 'account_no');
+  const copyLink = async tk => { try { await navigator.clipboard.writeText(shareUrl(tk)); say('Đã chép link nhánh'); } catch { say(shareUrl(tk)); } };
+  const regen = async () => { if (!confirm('Tạo link mới? Link cũ sẽ không mở được nữa.')) return; const { data, error } = await sb.from('systems').update({ share_token: null }).eq('id', edit.id).select('share_token').single(); if (error) return say(error.message); setEdit({ ...edit, share_token: data.share_token }); load(); say('Đã tạo link mới'); };
   const [edit, setEdit] = useState(null); const [saving, setSaving] = useState(false);
   const save = async () => {
     if (!edit.name?.trim()) return say('Cần nhập tên nhánh');
     setSaving(true);
-    const body = { name: edit.name.trim(), parent_id: edit.parent_id || null, leader_customer_id: edit.leader_customer_id || null, leader_name: edit.leader_name?.trim() || null, note: edit.note || null };
+    const body = { name: edit.name.trim(), parent_id: edit.parent_id || null, leader_customer_id: edit.leader_customer_id || null, leader_name: edit.leader_name?.trim() || null, note: edit.note || null,
+      master_account_id: edit.master_account_id || null, share_enabled: !!edit.share_enabled, contact: edit.contact?.trim() || null, share_intro: edit.share_intro?.trim() || null };
+    if (body.share_enabled && !body.master_account_id) { setSaving(false); return say('Bật link chia sẻ cần chọn tài khoản master'); }
     const { error } = edit.id ? await sb.from('systems').update(body).eq('id', edit.id) : await sb.from('systems').insert(body);
     setSaving(false); if (error) return say(error.message); setEdit(null); load(); say('Đã lưu nhánh');
   };
@@ -50,15 +56,18 @@ function Systems({ editor, say }) {
   const kids = pid => rows.filter(r => (r.parent_id || null) === (pid || null));
   const desc = id => { const out = new Set([id]); let ch = true; while (ch) { ch = false; rows.forEach(r => { if (r.parent_id && out.has(r.parent_id) && !out.has(r.id)) { out.add(r.id); ch = true; } }); } return out; };
   const cname = id => custs?.find(c => c.id === id)?.name;
+  const accNo = id => accs?.find(a => a.id === id)?.account_no || '';
+  const inBranch = sid => { if (!sid) return []; const ids = desc(sid); const cs = new Set((custs || []).filter(c => ids.has(c.system_id)).map(c => c.id)); return (accs || []).filter(a => cs.has(a.customer_id)); };
   const walk = pid => { const k = kids(pid); if (!k.length) return null; return <ul>{k.map(n => <li key={n.id}>
-    <div className="node"><span className="n">{n.name}{(n.leader_customer_id || n.leader_name) && <span className="small muted"> · trưởng nhánh {cname(n.leader_customer_id) || n.leader_name}</span>}</span>
-      {editor && <span className="row"><button className="btn sm" onClick={() => setEdit({ parent_id: n.id })}>+ Nhánh con</button><button className="btn sm" onClick={() => setEdit({ ...n })}>Sửa</button></span>}</div>
+    <div className="node"><span className="n">{n.name}{(n.leader_customer_id || n.leader_name) && <span className="small muted"> · trưởng nhánh {cname(n.leader_customer_id) || n.leader_name}</span>}
+        {n.share_enabled && n.share_token && <span className="pill ok" style={{ marginLeft: 6 }}>🔗 Link master {accNo(n.master_account_id)}</span>}</span>
+      {editor && <span className="row">{n.share_enabled && n.share_token && <button className="btn sm" onClick={() => copyLink(n.share_token)}>Chép link</button>}<button className="btn sm" onClick={() => setEdit({ parent_id: n.id })}>+ Nhánh con</button><button className="btn sm" onClick={() => setEdit({ ...n })}>Sửa</button></span>}</div>
     {walk(n.id)}</li>)}</ul>; };
   const opts = (exclude) => { const ex = exclude ? desc(exclude) : new Set(); const out = []; const w = (pid, d) => kids(pid).forEach(n => { if (ex.has(n.id)) return; out.push(<option key={n.id} value={n.id}>{'— '.repeat(d)}{n.name}</option>); w(n.id, d + 1); }); w(null, 0); return out; };
   return (
     <section className="card tree">
       <div className="row"><div className="title grow">Cây hệ thống</div>{editor && <button className="btn pri" onClick={() => setEdit({})}>+ Hệ thống cấp cao nhất</button>}</div>
-      <p className="small muted" style={{ margin: 0 }}>Trưởng nhánh (leader) đăng nhập sẽ xem được toàn bộ tài khoản trong nhánh của mình và mọi nhánh con.</p>
+      <p className="small muted" style={{ margin: 0 }}>Trưởng nhánh (leader) đăng nhập sẽ xem được toàn bộ tài khoản trong nhánh của mình và mọi nhánh con. Bấm <b>Sửa</b> một nhánh để chọn tài khoản master và bật <b>link chia sẻ</b> cho khách.</p>
       {rows.length ? walk(null) : <div className="empty"><b>Chưa có nhánh nào</b></div>}
       {edit && <Modal title={edit.id ? 'Sửa nhánh' : 'Thêm nhánh'} onClose={() => setEdit(null)} onSave={save} saving={saving}
         extra={edit.id && <button type="button" className="btn" style={{ color: 'var(--loss)' }} onClick={del}>Xóa</button>}>
@@ -68,6 +77,22 @@ function Systems({ editor, say }) {
           <F label="Trưởng nhánh (khách hàng)"><select id="sys-leader" value={edit.leader_customer_id || ''} onChange={e => setEdit({ ...edit, leader_customer_id: e.target.value })}><option value="">— Chưa có —</option>{(custs || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></F>
           <F label="Tên trưởng nhánh (nếu chưa là khách)"><input id="sys-leadername" value={edit.leader_name || ''} onChange={e => setEdit({ ...edit, leader_name: e.target.value })} /></F>
           <F label="Ghi chú" wide><input id="sys-note" value={edit.note || ''} onChange={e => setEdit({ ...edit, note: e.target.value })} /></F>
+          <div style={{ gridColumn: '1/-1', borderTop: '1px solid var(--line)', paddingTop: 12 }}><b>Link chia sẻ của nhánh</b><span className="small muted"> · khách mở link không cần đăng nhập, xem hiệu quả tài khoản master (số TK che 4 số đầu)</span></div>
+          <F label="Tài khoản master" wide><select id="sys-master" value={edit.master_account_id || ''} onChange={e => setEdit({ ...edit, master_account_id: e.target.value })}>
+            <option value="">— Chưa chọn —</option>
+            {(() => { const inb = inBranch(edit.id); const ids = new Set(inb.map(a => a.id)); return <>
+              {inb.length > 0 && <optgroup label="Tài khoản trong nhánh">{inb.map(a => <option key={a.id} value={a.id}>{a.account_no} · {cname(a.customer_id)} · {a.broker || ''}</option>)}</optgroup>}
+              <optgroup label="Tài khoản khác">{(accs || []).filter(a => !ids.has(a.id)).map(a => <option key={a.id} value={a.id}>{a.account_no} · {cname(a.customer_id)} · {a.broker || ''}</option>)}</optgroup></>; })()}
+          </select></F>
+          <F label="Liên hệ hiện trên trang (Zalo / Telegram / link)"><input id="sys-contact" placeholder="0901234567 hoặc @telegram hoặc https://…" value={edit.contact || ''} onChange={e => setEdit({ ...edit, contact: e.target.value })} /></F>
+          <F label="Bật link chia sẻ"><label className="row" style={{ gap: 8 }}><input id="sys-share" type="checkbox" style={{ width: 20, height: 20 }} checked={!!edit.share_enabled} onChange={e => setEdit({ ...edit, share_enabled: e.target.checked })} /> {edit.share_enabled ? 'Đang bật' : 'Đang tắt'}</label></F>
+          <F label="Lời giới thiệu (để trống = mặc định)" wide><textarea id="sys-intro" rows={2} value={edit.share_intro || ''} onChange={e => setEdit({ ...edit, share_intro: e.target.value })} /></F>
+          {edit.id && edit.share_token && <F label="Link nhánh" wide><span className="row" style={{ gap: 6 }}><span className="key" style={{ wordBreak: 'break-all' }}>{shareUrl(edit.share_token)}</span>
+            <button type="button" className="btn sm" onClick={() => copyLink(edit.share_token)}>Chép</button>
+            <a className="btn sm" href={'#/b/' + edit.share_token} target="_blank" rel="noopener noreferrer">Mở thử</a>
+            <button type="button" className="btn sm" onClick={regen}>Tạo link mới</button></span>
+            {!edit.share_enabled && <span className="small muted">Bật "Bật link chia sẻ" và lưu thì link mới hoạt động.</span>}</F>}
+          {!edit.id && <p className="small muted" style={{ gridColumn: '1/-1', margin: 0 }}>Link được tạo sau khi lưu nhánh.</p>}
         </div>
       </Modal>}
     </section>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { sb, rpc, t, getLang, setLang, VERSION, authReady, authError } from './lib.js';
 import Public from './Public.jsx';
+import Branch from './Branch.jsx';
 import { News, AlertBanner, useMarketStatus } from './News.jsx';
 import { Overview, Accounts, AccountDetail, Tree } from './Portal.jsx';
 import Admin from './Admin.jsx';
@@ -55,6 +56,7 @@ export default function App() {
   let page;
   if (!ready) page = <div className="wrap empty">{t('loading')}</div>;
   else if (route[0] === 'news') page = <News />;
+  else if (route[0] === 'b' && route[1]) page = <Branch token={route[1]} />;
   else if (route[0] === 'login') page = session ? <Redirect to="/app" /> : <Login />;
   else if (inApp && !session) page = <Login />;
   else if (route[0] === 'app' && route[1] === 'a' && route[2]) page = <AccountDetail id={route[2]} />;

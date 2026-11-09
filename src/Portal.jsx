@@ -160,6 +160,7 @@ export function Tree() {
   return (
     <main className="wrap">
       <h1 className="h-lg">{t('treeTitle')}</h1>
+      <ShareLinks />
       <section className="kpis">
         <div className="kpi"><span className="label">{t('allAcc')}</span><span className="num-xl">{tot.a}</span></div>
         <div className="kpi"><span className="label">{t('capital')}</span><span className="num-xl">{usd(tot.c)}</span></div>
@@ -167,5 +168,25 @@ export function Tree() {
       </section>
       <section className="card tree">{nodes.length ? walk(null) : <div className="empty">{t('none')}</div>}</section>
     </main>
+  );
+}
+
+// Link chia sẻ nhánh cho trưởng nhánh tự lấy gửi khách
+function ShareLinks() {
+  const [rows] = useRpc('my_share_links', {}, []);
+  const [msg, setMsg] = useState('');
+  const on = (rows || []).filter(r => r.enabled && r.has_master);
+  if (!on.length) return null;
+  const url = tk => location.origin + '/#/b/' + tk;
+  const copy = async tk => { try { await navigator.clipboard.writeText(url(tk)); setMsg('Đã chép link'); } catch { setMsg(url(tk)); } setTimeout(() => setMsg(''), 2500); };
+  return (
+    <section className="card">
+      <div className="row"><div className="title grow">🔗 Link chia sẻ nhánh</div>{msg && <span className="pill ok">{msg}</span>}</div>
+      <p className="small muted" style={{ margin: 0 }}>Gửi link này cho khách: không cần đăng nhập vẫn xem được hiệu quả tài khoản master của nhánh (số tài khoản được che).</p>
+      <div className="tbl"><table><tbody>{on.map(r => (
+        <tr key={r.system_id}><td><b>{r.name}</b><div className="small muted key" style={{ wordBreak: 'break-all' }}>{url(r.token)}</div></td>
+          <td className="r"><span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><button className="btn pri sm" onClick={() => copy(r.token)}>Chép link</button><a className="btn sm" href={'#/b/' + r.token}>Xem</a></span></td></tr>))}
+      </tbody></table></div>
+    </section>
   );
 }
