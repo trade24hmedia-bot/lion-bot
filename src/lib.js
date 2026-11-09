@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const VERSION = '1.6.0';
+export const VERSION = '1.7.0';
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
 });
@@ -16,7 +16,8 @@ export const authReady = (() => {
   const p = new URLSearchParams(h.slice(i));
   const at = p.get('access_token'), rt = p.get('refresh_token');
   if (at && rt) {
-    history.replaceState(null, '', location.pathname + '#/app');
+    // link "Quên mật khẩu" (type=recovery) → trang đặt mật khẩu mới
+    history.replaceState(null, '', location.pathname + (p.get('type') === 'recovery' ? '#/set-password' : '#/app'));
     return sb.auth.setSession({ access_token: at, refresh_token: rt })
       .then(({ error }) => { if (error) authError = error.message; })
       .catch(e => { authError = String(e && e.message || e); });
@@ -35,7 +36,13 @@ const DICT = {
     cumProfit: 'Lợi nhuận lũy kế (USD)', monthly: 'Tăng trưởng theo tháng', month: 'Tháng', profit: 'Lãi/lỗ', pct: '%',
     disclaimer: 'Kết quả quá khứ không đảm bảo kết quả tương lai. Giao dịch vàng có rủi ro mất vốn.',
     emailLabel: 'Email đã đăng ký với Lion Bot', sendLink: 'Gửi link đăng nhập', sent: 'Đã gửi link đăng nhập tới email của bạn. Mở email trên thiết bị này và bấm vào link.',
-    loginHint: 'Không cần mật khẩu. Hệ thống gửi một link đăng nhập vào email của bạn.',
+    loginHint: 'Lần đầu: chọn "Gửi link qua email", vào được rồi đặt mật khẩu. Từ lần sau chỉ cần email + mật khẩu.',
+    tabPassword: 'Email + mật khẩu', tabLink: 'Gửi link qua email', password: 'Mật khẩu', password2: 'Nhập lại mật khẩu', forgot: 'Quên mật khẩu?',
+    badLogin: 'Sai email hoặc mật khẩu. Nếu chưa đặt mật khẩu, hãy chọn "Gửi link qua email" để đăng nhập lần đầu rồi đặt mật khẩu.',
+    needEmail: 'Nhập email trước.', resetSent: 'Đã gửi link đặt lại mật khẩu tới email của bạn.', linkHint: 'Hệ thống gửi một link đăng nhập vào email của bạn, không cần mật khẩu.',
+    setPwTitle: 'Đặt mật khẩu', changePwTitle: 'Đổi mật khẩu', setPwHint: 'Mật khẩu ít nhất 8 ký tự. Lần sau đăng nhập chỉ cần email + mật khẩu.', savePw: 'Lưu mật khẩu', pwSaved: 'Đã lưu mật khẩu. Lần sau đăng nhập bằng email + mật khẩu.',
+    pwShort: 'Mật khẩu cần ít nhất 8 ký tự.', pwMismatch: 'Hai mật khẩu không giống nhau.', showPw: 'Hiện', hidePw: 'Ẩn',
+    pwNudge: 'Đặt mật khẩu để lần sau đăng nhập nhanh, không cần mở email.', later: 'Để sau', signingIn: 'Đang đăng nhập…',
     myCapital: 'Vốn của tôi', profitMonth: 'Lãi tháng này', profitAll: 'Lãi từ đầu', growth: 'Tăng trưởng tháng',
     myAccounts: 'Tài khoản đang chạy', downline: 'Tài khoản tuyến dưới', broker: 'Sàn', customer: 'Khách hàng',
     noAccount: 'Chưa có tài khoản nào gắn với email này', noAccountHint: 'Liên hệ Lion Bot để được gắn tài khoản giao dịch vào email của bạn.',
@@ -56,7 +63,13 @@ const DICT = {
     cumProfit: 'Cumulative profit (USD)', monthly: 'Monthly growth', month: 'Month', profit: 'P/L', pct: '%',
     disclaimer: 'Past results do not guarantee future results. Gold trading carries a risk of loss.',
     emailLabel: 'Email registered with Lion Bot', sendLink: 'Send sign-in link', sent: 'We sent a sign-in link to your email. Open it on this device and tap the link.',
-    loginHint: 'No password needed. We email you a sign-in link.',
+    loginHint: 'First time: choose "Email me a link", then set a password. Next time just use email + password.',
+    tabPassword: 'Email + password', tabLink: 'Email me a link', password: 'Password', password2: 'Repeat password', forgot: 'Forgot password?',
+    badLogin: 'Wrong email or password. If you have not set a password yet, use "Email me a link" first, then set one.',
+    needEmail: 'Enter your email first.', resetSent: 'We sent a password reset link to your email.', linkHint: 'We email you a sign-in link, no password needed.',
+    setPwTitle: 'Set a password', changePwTitle: 'Change password', setPwHint: 'At least 8 characters. Next time sign in with email + password.', savePw: 'Save password', pwSaved: 'Password saved. Next time sign in with email + password.',
+    pwShort: 'Password needs at least 8 characters.', pwMismatch: 'Passwords do not match.', showPw: 'Show', hidePw: 'Hide',
+    pwNudge: 'Set a password so next time you can sign in without opening your email.', later: 'Later', signingIn: 'Signing in…',
     myCapital: 'My capital', profitMonth: 'Profit this month', profitAll: 'Profit to date', growth: 'Monthly growth',
     myAccounts: 'Running accounts', downline: 'Downline accounts', broker: 'Broker', customer: 'Customer',
     noAccount: 'No account is linked to this email yet', noAccountHint: 'Contact Lion Bot to link your trading account to your email.',
