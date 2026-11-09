@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { sb, fmt, vnDate, rpc } from './lib.js';
 import { Toast, Modal, F, useTable } from './ui.jsx';
-import { FinOverview, Balance, Profit } from './AdminFinance.jsx';
+import { FinOverview, Balance, Profit, Telegram } from './AdminFinance.jsx';
 
 // Quản trị cơ bản (đợt 1): hệ thống, khách hàng, tài khoản + mã khóa EA, người dùng.
 // Chỉ admin / tech được ghi (phân quyền trong cơ sở dữ liệu), core chỉ xem.
@@ -13,7 +13,7 @@ export default function Admin({ me, sub }) {
   const [toast, setToast] = useState('');
   const say = m => { setToast(m); setTimeout(() => setToast(''), 2800); };
   const isAdmin = me?.role === 'admin';
-  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ['accounts', 'Tài khoản & mã EA'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng']] : [])];
+  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ['accounts', 'Tài khoản & mã EA'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram']] : [])] : [])];
   return (
     <main className="wrap">
       <div className="row"><h1 className="h-lg grow">Quản trị</h1>
@@ -22,6 +22,7 @@ export default function Admin({ me, sub }) {
       {isAdmin && sub === 'overview' ? <FinOverview say={say} />
         : isAdmin && sub === 'balance' ? <Balance say={say} />
         : isAdmin && sub === 'profit' ? <Profit say={say} />
+        : isAdmin && sub === 'telegram' ? <Telegram say={say} />
         : sub === 'customers' ? <Customers editor={editor} say={say} />
         : sub === 'systems' ? <Systems editor={editor} say={say} />
         : sub === 'users' ? <Users say={say} />

@@ -270,3 +270,88 @@ export function Profit({ say }) {
     </>
   );
 }
+
+// ------------------------------------------------------------ Telegram (chỉ quản lý)
+const LVN = { orange: '🟠 Cam + 🔴 Đỏ', red: '🔴 Chỉ Đỏ' };
+export function Telegram({ say }) {
+  const [d, setD] = useState(null); const [err, setErr] = useState('');
+  const [tok, setTok] = useState(''); const [edit, setEdit] = useState(null); const [saving, setSaving] = useState(false);
+  const [found, setFound] = useState(null); const [finding, setFinding] = useState(false);
+  const load = useCallback(() => rpc('tg_settings').then(setD).catch(e => setErr(e.message)), []);
+  useEffect(() => { load(); }, [load]);
+  if (err) return <div className="card neg">{err}</div>;
+  if (!d) return <div className="empty">Đang tải…</div>;
+  const saveTok = async e => { e.preventDefault(); try { await rpc('tg_save_token', { p_token: tok.trim() }); setTok(''); load(); say('Đã lưu token bot'); } catch (x) { say(x.message); } };
+  const find = async () => {
+    setFinding(true); setFound(null);
+    try {
+      const req = await rpc('tg_discover');
+      for (let i = 0; i < 8; i++) { await new Promise(r => setTimeout(r, 1500)); const r = await rpc('tg_request_result', { p_req: req }); if (r.ready) { if (!r.ok) say('Telegram báo: ' + r.error); setFound(r.chats || []); break; } }
+    } catch (x) { say(x.message); } finally { setFinding(false); }
+  };
+  const save = async () => {
+    if (!edit.chat_id?.toString().trim()) return say('Nhập chat id');
+    setSaving(true);
+    try { await rpc('tg_save_chat', { p: edit }); setEdit(null); load(); say('Đã lưu nhóm'); } catch (x) { say(x.message); } finally { setSaving(false); }
+  };
+  const del = async c => { if (!confirm('Bỏ nhóm "' + c.name + '"?')) return; await rpc('tg_delete_chat', { p_id: c.id }); load(); say('Đã bỏ nhóm'); };
+  const test = async c => { try { await rpc('tg_test', { p_chat: c.chat_id }); say('Đã gửi tin thử tới "' + c.name + '" — kiểm tra trong Telegram'); } catch (x) { say(x.message); } };
+  const newChat = (x = {}) => setEdit({ name: x.title || '', chat_id: x.chat_id || '', min_level: 'orange', send_news: true, send_events: true, send_price: true, send_daily: true, enabled: true });
+  const Ck = ({ k, l }) => <label className="row" style={{ gap: 8 }}><input type="checkbox" style={{ width: 18, height: 18 }} checked={!!edit[k]} onChange={e => setEdit({ ...edit, [k]: e.target.checked })} />{l}</label>;
+  const have = new Set(d.chats.map(c => String(c.chat_id)));
+  return (
+    <>
+      <section className="card">
+        <div className="title">Báo Telegram cho khách dùng bot</div>
+        <p className="small muted" style={{ margin: 0 }}>Hệ thống tự gửi vào nhóm / kênh: 🔴🟠 tin tức Đỏ / Cam kèm lời khuyên xử lý bot · ⏰ nhắc 30 phút trước tin Đỏ / Cam trên lịch · ⚡ giá vàng chạy mạnh · ✅ hết cảnh báo · ☀️ bản tin 7:00 sáng. Mỗi tin chỉ gửi 1 lần.</p>
+      </section>
+
+      <section className="card">
+        <div className="row"><div className="title grow">1. Bot Telegram</div>{d.has_token ? <span className="pill ok">Đã có token · {d.token_hint}</span> : <span className="pill bad">Chưa có token</span>}</div>
+        <p className="small muted" style={{ margin: 0 }}>Dùng lại bot đang báo EA hoặc tạo bot mới: mở <b>@BotFather</b> trong Telegram → <b>/newbot</b> → đặt tên → chép token (dạng <span className="key">123456789:AAH…</span>) dán vào đây. Token được lưu riêng trên máy chủ, web không hiện lại đầy đủ.</p>
+        <form className="row" onSubmit={saveTok}><label className="field" style={{ flex: '1 1 320px' }}><input id="tg-token" type="password" autoComplete="off" placeholder={d.has_token ? 'Dán token mới để thay' : 'Dán token bot'} value={tok} onChange={e => setTok(e.target.value)} /></label><button className="btn pri" disabled={!tok.trim()}>Lưu token</button></form>
+      </section>
+
+      <section className="card">
+        <div className="row"><div className="title grow">2. Nhóm / kênh nhận tin ({d.chats.length})</div>
+          <button className="btn" onClick={find} disabled={!d.has_token || finding}>{finding ? 'Đang tìm…' : '🔍 Tìm nhóm'}</button>
+          <button className="btn pri" onClick={() => newChat()} disabled={!d.has_token}>+ Thêm thủ công</button></div>
+        <p className="small muted" style={{ margin: 0 }}>Thêm bot vào nhóm khách (kênh thì thêm bot làm <b>quản trị viên</b>), gửi 1 tin bất kỳ trong nhóm (ví dụ <span className="key">/start</span>), rồi bấm <b>Tìm nhóm</b>. Sau khi thêm, bấm <b>Gửi thử</b> để kiểm tra.</p>
+        {found && <div className="card" style={{ background: 'var(--surface-200)' }}>
+          {found.length ? found.map(x => <div key={x.chat_id} className="row"><span className="grow"><b>{x.title || '(không tên)'}</b> <span className="small muted">{x.type} · {x.chat_id}</span></span>
+            {have.has(String(x.chat_id)) ? <span className="pill ok">Đã thêm</span> : <button className="btn sm pri" onClick={() => newChat(x)}>Thêm</button>}</div>)
+            : <span className="small muted">Chưa thấy nhóm nào. Kiểm tra bot đã ở trong nhóm và có ít nhất 1 tin nhắn mới trong nhóm, rồi tìm lại.</span>}
+        </div>}
+        {d.chats.length > 0 ? <div className="tbl"><table><thead><tr><th>Nhóm</th><th>Mức gửi</th><th>Loại tin</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+          {d.chats.map(c => <tr key={c.id}>
+            <td><b>{c.name}</b><div className="small muted key">{c.chat_id}</div></td>
+            <td>{LVN[c.min_level]}</td>
+            <td className="small">{[c.send_news && 'Tin tức', c.send_events && 'Lịch tin', c.send_price && 'Giá chạy mạnh', c.send_daily && 'Bản tin sáng'].filter(Boolean).join(' · ')}</td>
+            <td>{c.enabled ? <span className="pill ok">Đang gửi</span> : <span className="pill mut">Tạm tắt</span>}</td>
+            <td className="r"><span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><button className="btn sm" onClick={() => test(c)}>Gửi thử</button><button className="btn sm" onClick={() => setEdit({ ...c })}>Sửa</button><button className="btn sm" onClick={() => del(c)}>Bỏ</button></span></td>
+          </tr>)}
+        </tbody></table></div> : <div className="empty">Chưa có nhóm nào</div>}
+      </section>
+
+      <section className="card">
+        <div className="title">Tin đã gửi gần đây</div>
+        {d.log.length ? <div className="tbl" style={{ maxHeight: 360, overflowY: 'auto' }}><table><tbody>{d.log.map((x, i) => <tr key={i}>
+          <td className="small" style={{ whiteSpace: 'nowrap' }}>{new Date(x.sent_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</td>
+          <td className="small">{x.name || ''}</td><td className="small muted">{(x.preview || '').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').slice(0, 140)}</td></tr>)}</tbody></table></div>
+          : <div className="empty">Chưa gửi tin nào</div>}
+      </section>
+
+      {edit && <Modal title={edit.id ? 'Sửa nhóm' : 'Thêm nhóm nhận tin'} onClose={() => setEdit(null)} onSave={save} saving={saving}>
+        <div className="form">
+          <F label="Tên gợi nhớ"><input id="tg-name" value={edit.name || ''} onChange={e => setEdit({ ...edit, name: e.target.value })} placeholder="Nhóm khách Lion Bot" /></F>
+          <F label="Chat id (nhóm thường là số âm, ví dụ -100…)"><input id="tg-chat" value={edit.chat_id || ''} onChange={e => setEdit({ ...edit, chat_id: e.target.value })} /></F>
+          <F label="Gửi từ mức"><select id="tg-level" value={edit.min_level} onChange={e => setEdit({ ...edit, min_level: e.target.value })}><option value="orange">🟠 Cam + 🔴 Đỏ</option><option value="red">🔴 Chỉ Đỏ</option></select></F>
+          <F label="Trạng thái"><Ck k="enabled" l="Đang gửi" /></F>
+          <div className="wide" style={{ gridColumn: '1/-1', display: 'grid', gap: 8 }}><b className="small">Loại tin gửi vào nhóm này</b>
+            <Ck k="send_news" l="Tin tức Đỏ / Cam kèm lời khuyên" /><Ck k="send_events" l="Nhắc 30 phút trước tin Đỏ / Cam trên lịch kinh tế" />
+            <Ck k="send_price" l="Giá vàng chạy mạnh" /><Ck k="send_daily" l="Bản tin 7:00 sáng (lịch tin trong ngày)" /></div>
+        </div>
+      </Modal>}
+    </>
+  );
+}
