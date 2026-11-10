@@ -3,6 +3,7 @@ import { sb, fmt, vnDate, rpc } from './lib.js';
 import { Toast, Modal, F, useTable } from './ui.jsx';
 import { FinOverview, Balance, Profit, Telegram, BotLink } from './AdminFinance.jsx';
 import BotMon from './BotMon.jsx';
+import { GuideAdmin } from './Guide.jsx';
 
 // Quản trị cơ bản (đợt 1): hệ thống, khách hàng, tài khoản + mã khóa EA, người dùng.
 // Chỉ admin / tech được ghi (phân quyền trong cơ sở dữ liệu), core chỉ xem.
@@ -14,13 +15,14 @@ export default function Admin({ me, sub, arg }) {
   const [toast, setToast] = useState('');
   const say = m => { setToast(m); setTimeout(() => setToast(''), 2800); };
   const isAdmin = me?.role === 'admin';
-  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ...(editor ? [['botmon', 'Giám sát bot']] : []), ['accounts', 'Tài khoản'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram'], ['botlink', 'Kết nối bot']] : [])] : [])];
+  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ...(editor ? [['botmon', 'Giám sát bot']] : []), ['accounts', 'Tài khoản'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(editor ? [['guides', 'Hướng dẫn']] : []), ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram'], ['botlink', 'Kết nối bot']] : [])] : [])];
   return (
     <main className="wrap">
       <div className="row"><h1 className="h-lg grow">Quản trị</h1>
         <nav className="tabs">{tabs.map(([k, l]) => <a key={k} href={'#/admin/' + k} className={sub === k ? 'on' : ''}>{l}</a>)}</nav></div>
       {!editor && <div className="pill mut">Tài khoản Core team chỉ xem, không sửa được.</div>}
       {isAdmin && sub === 'overview' ? <FinOverview say={say} />
+        : editor && sub === 'guides' ? <GuideAdmin say={say} />
         : editor && sub === 'botmon' ? <BotMon say={say} arg={arg} isAdmin={isAdmin} />
         : isAdmin && sub === 'balance' ? <Balance say={say} />
         : isAdmin && sub === 'profit' ? <Profit say={say} />

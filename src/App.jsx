@@ -1,3 +1,4 @@
+import Guide from './Guide.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import { sb, rpc, t, getLang, setLang, VERSION, authReady, authError } from './lib.js';
 import Public from './Public.jsx';
@@ -136,6 +137,7 @@ export default function App() {
   let page;
   if (!ready) page = <div className="wrap empty">{t('loading')}</div>;
   else if (route[0] === 'news') page = <News key={getLang()} />;
+  else if (route[0] === 'guide') page = <Guide key={getLang()} slug={route[1]} />;
   else if (route[0] === 'b' && route[1]) page = <Branch token={route[1]} />;
   else if (route[0] === 'set-password') page = session ? <SetPassword session={session} /> : <Login />;
   else if (route[0] === 'login') page = session ? <Redirect to="/app" /> : <Login />;
@@ -155,6 +157,7 @@ export default function App() {
         <nav className="tabs">
           {session && <>{tab('/app', t('overview'))}{tab('/app/accounts', t('accounts'))}</>}
           {tab('/news', t('news'))}
+          {tab('/guide', t('guide'))}
           {(me?.is_leader || staff) && tab('/app/tree', t('tree'))}
           {staff && tab('/admin', t('admin'))}
         </nav>
