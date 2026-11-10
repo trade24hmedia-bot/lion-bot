@@ -45,9 +45,22 @@ create or replace function public.tg_esc(s text) returns text language sql immut
 
 create or replace function public.tg_advice(l text) returns text language sql immutable as $$
   select case l
-    when 'red'    then 'Nên TẮT BOT hoặc GIẢM VOL mạnh, không mở lệnh mới cho đến khi hết cảnh báo. Lệnh đang âm sâu cân nhắc đóng bớt để giữ DD ngày.'
-    when 'orange' then 'Nên GIẢM VOL (ví dụ còn 50%), theo dõi sát DD trong ngày, tránh nhồi lệnh.'
-    else 'Bot chạy bình thường.' end $$;
+    when 'red'    then 'Thị trường có thể biến động rất mạnh. Quý khách nên cẩn thận trong giai đoạn này. Mọi điều chỉnh bot vui lòng trao đổi với kỹ thuật Lion Bot trước.'
+    when 'orange' then 'Thị trường có thể biến động. Quý khách nên cẩn thận và theo dõi tài khoản trong giai đoạn này.'
+    else 'Thị trường bình thường.' end $$;
+
+-- thời gian theo giờ Việt Nam: "09:30 10/11", "còn 1 giờ 25 phút", "cách đây 12 phút"
+create or replace function public.vn_hm(t timestamptz) returns text language sql stable as $$
+  select to_char(t at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM') $$;
+create or replace function public.dur_txt(m int) returns text language sql immutable as $$
+  select case when m < 1 then 'dưới 1 phút'
+              when m < 60 then m || ' phút'
+              when m % 60 = 0 then (m / 60) || ' giờ'
+              else (m / 60) || ' giờ ' || (m % 60) || ' phút' end $$;
+create or replace function public.until_txt(t timestamptz) returns text language sql stable as $$
+  select case when t <= now() then 'đang diễn ra' else 'còn ' || public.dur_txt(ceil(extract(epoch from t - now()) / 60)::int) end $$;
+create or replace function public.ago_txt(t timestamptz) returns text language sql stable as $$
+  select case when t >= now() - interval '1 minute' then 'vừa xong' else 'cách đây ' || public.dur_txt(floor(extract(epoch from now() - t) / 60)::int) end $$;
 
 -- gửi 1 tin (HTML) tới 1 chat
 create or replace function public.tg_send(p_chat text, p_html text) returns bigint
@@ -90,7 +103,8 @@ begin
   -- 1) tin tức mới Đỏ / Cam (gộp tối đa 5 tin / lần)
   for r in select level, string_agg(
               case level when 'red' then '🔴' else '🟠' end || ' <b>' || score || ' điểm</b> · ' || tg_esc(title)
-              || E'\n<i>' || tg_esc(coalesce(source, '')) || ' · ' || to_char(published at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM')
+              || E'\n🕘 Tin ra lúc <b>' || vn_hm(published) || '</b> (giờ VN) · ' || ago_txt(published)
+              || E'\n<i>' || tg_esc(coalesce(source, ''))
               || case when array_length(tags, 1) > 0 then ' · ' || tg_esc(array_to_string(tags, ', ')) else '' end || '</i>'
               || case when link is not null then E'\n<a href="' || tg_esc(link) || '">Đọc tin</a>' else '' end, E'\n\n' order by score desc) as body,
               string_agg(id::text, ',') as ids
@@ -109,19 +123,20 @@ begin
 
   -- 2) 30 phút trước tin lịch Đỏ / Cam
   for r in select * from econ_events where level in ('red', 'orange') and at > v_now and at <= v_now + interval '30 minutes' order by at loop
-    txt := '⏰ <b>' || to_char(r.at at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI') || ' ra tin ' || case r.level when 'red' then '🔴 ĐỎ' else '🟠 CAM' end || '</b> · '
-        || tg_esc(r.country) || E'\n<b>' || tg_esc(r.title) || '</b>'
+    txt := '⏰ <b>SẮP RA TIN ' || case r.level when 'red' then '🔴 ĐỎ' else '🟠 CAM' end || '</b> · ' || tg_esc(r.country)
+        || E'\n<b>' || tg_esc(r.title) || '</b>'
+        || E'\n🕘 Tin ra lúc <b>' || vn_hm(r.at) || '</b> (giờ VN) · <b>' || until_txt(r.at) || '</b>'
         || case when r.forecast is not null or r.previous is not null then E'\nDự báo: ' || coalesce(tg_esc(r.forecast), '—') || ' · Kỳ trước: ' || coalesce(tg_esc(r.previous), '—') else '' end
         || E'\n\n👉 <b>Lời khuyên:</b> ' || tg_advice(r.level)
-        || E'\nKhung nên thận trọng: ' || to_char((r.at - interval '30 minutes') at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI') || ' – '
-        || to_char((r.at + interval '30 minutes') at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI') || web;
+        || E'\nKhung thời gian cần cẩn thận: ' || to_char((r.at - interval '30 minutes') at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI') || ' – '
+        || to_char((r.at + interval '30 minutes') at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI') || ' (giờ VN)' || web;
     perform tg_broadcast('ev30:' || r.uid, 'event', r.level, txt);
   end loop;
 
   -- 3) giá chạy mạnh
   for r in select * from jsonb_to_recordset(st->'reasons') as x(kind text, level text, text text) where kind = 'price' loop
     txt := case r.level when 'red' then '⚡ <b>LION BOT · GIÁ VÀNG CHẠY RẤT MẠNH</b>' else '⚡ <b>LION BOT · GIÁ VÀNG BIẾN ĐỘNG</b>' end
-        || E'\n\n' || tg_esc(r.text) || E'\n💰 Giá hiện tại: $' || to_char((st->>'price')::numeric, 'FM999G990D00')
+        || E'\n\n' || tg_esc(r.text) || E'\n🕘 Lúc ' || vn_hm(v_now) || ' (giờ VN)' || E'\n💰 Giá hiện tại: $' || to_char((st->>'price')::numeric, 'FM999G990D00')
         || E'\n\n👉 <b>Lời khuyên:</b> ' || tg_advice(r.level) || web;
     perform tg_broadcast('price:' || r.level || ':' || to_char(v_vn, 'YYYYMMDDHH24'), 'price', r.level, txt);
   end loop;
@@ -139,13 +154,13 @@ begin
         and exists (select 1 from bot_config where key = 'tg_alert_on' and value = 'yes') then
     update bot_config set value = 'no' where key = 'tg_alert_on';
     txt := E'✅ <b>LION BOT · HẾT CẢNH BÁO</b>\n\nThị trường đã ổn định hơn (mức hiện tại: ' || case v_lvl when 'yellow' then '🟡 Vàng' else '🟢 Xanh' end
-        || E').\n👉 Bot có thể chạy lại bình thường. Vẫn theo dõi DD trong ngày.' || web;
+        || E').\n🕘 Lúc ' || vn_hm(v_now) || E' (giờ VN)\n👉 Thị trường đã ổn định hơn, quý khách vẫn nên theo dõi tài khoản trong ngày.' || web;
     perform tg_broadcast('clear:' || to_char(v_vn, 'YYYYMMDDHH24MI'), 'clear', 'red', txt);
   end if;
 
   -- 5) bản tin 7:00 sáng (giờ VN)
   if extract(hour from v_vn) = 7 and extract(minute from v_vn) < 10 then
-    select string_agg(case level when 'red' then '🔴 ' else '🟠 ' end || to_char(at at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI') || ' · '
+    select string_agg(case level when 'red' then '🔴 ' else '🟠 ' end || '<b>' || vn_hm(at) || '</b> (' || until_txt(at) || ') · '
                       || tg_esc(country) || ' · ' || tg_esc(title), E'\n' order by at)
       into lst from econ_events
      where level in ('red', 'orange') and at between v_now and v_now + interval '24 hours';
@@ -153,7 +168,7 @@ begin
         || 'Mức cảnh báo hiện tại: ' || case v_lvl when 'red' then '🔴 ĐỎ' when 'orange' then '🟠 CAM' when 'yellow' then '🟡 VÀNG' else '🟢 XANH' end
         || case when st->>'price' is not null then E'\n💰 Giá vàng: $' || to_char((st->>'price')::numeric, 'FM999G990D00') else '' end
         || E'\n\n<b>Lịch tin Đỏ / Cam 24 giờ tới (giờ VN):</b>\n' || coalesce(lst, 'Không có tin Đỏ / Cam.')
-        || E'\n\n👉 Quanh giờ ra tin 🔴: nên tạm dừng bot hoặc giảm vol (30 phút trước → 30 phút sau).' || web;
+        || E'\n\n👉 Khoảng 30 phút trước và sau giờ ra tin 🔴 thị trường thường biến động mạnh, quý khách nên cẩn thận.' || web;
     perform tg_broadcast('daily:' || to_char(v_vn, 'YYYYMMDD'), 'daily', 'red', txt);
   end if;
 
