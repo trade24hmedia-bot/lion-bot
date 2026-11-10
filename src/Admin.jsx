@@ -13,7 +13,7 @@ export default function Admin({ me, sub }) {
   const [toast, setToast] = useState('');
   const say = m => { setToast(m); setTimeout(() => setToast(''), 2800); };
   const isAdmin = me?.role === 'admin';
-  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ['accounts', 'Tài khoản & mã EA'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram'], ['botlink', 'Kết nối bot']] : [])] : [])];
+  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ['accounts', 'Tài khoản'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram'], ['botlink', 'Kết nối bot']] : [])] : [])];
   return (
     <main className="wrap">
       <div className="row"><h1 className="h-lg grow">Quản trị</h1>
@@ -206,7 +206,7 @@ function AccountsAdmin({ editor, say }) {
         await sb.from('renewals').insert({ kind: 'bot', account_id: id, action: 'Cài mới', package: body.package, from_date: body.bot_start, to_date: body.bot_end, done_by: u?.user?.email || null });
       }
       if (e.investor_pass || e.id) await sb.from('account_secrets').upsert({ account_id: id, investor_pass: e.investor_pass || null, updated_at: new Date().toISOString() });
-      setEdit(null); load(); loadCusts(); loadVps(); say(e.id ? 'Đã lưu tài khoản' : 'Đã thêm tài khoản. Bấm Chép để lấy mã EA.');
+      setEdit(null); load(); loadCusts(); loadVps(); say(e.id ? 'Đã lưu tài khoản' : 'Đã thêm tài khoản');
     } catch (x) { say(String(x.message || x).includes('duplicate') ? 'Số tài khoản + server này đã có' : (x.message || String(x))); }
     finally { setSaving(false); }
   };
@@ -244,14 +244,13 @@ function AccountsAdmin({ editor, say }) {
       <div className="row"><div className="title grow">Tài khoản giao dịch ({list.length})</div>
         <label className="field" style={{ width: 'min(260px,100%)' }}><input id="acc-q" type="search" placeholder="Tìm số TK, khách, sàn…" value={q} onChange={ev => setQ(ev.target.value)} /></label>
         {editor && <button className="btn pri" onClick={openNew}>+ Thêm tài khoản</button>}</div>
-      <p className="small muted" style={{ margin: 0 }}>Kỹ thuật nhập sau khi cài bot. Mỗi tài khoản có một <b>mã khóa EA</b> riêng: dán mã này vào Inputs của EA trên đúng tài khoản đó.</p>
-      <div className="tbl"><table><thead><tr><th>Số TK</th><th>Khách</th><th>Sàn</th><th className="r">Chia</th><th>Dữ liệu EA</th><th>Mã khóa EA</th></tr></thead><tbody>
+      <p className="small muted" style={{ margin: 0 }}>Kỹ thuật nhập sau khi cài bot. Bot gửi dữ liệu theo số tài khoản + server bằng một mã bí mật chung (xem tab Kết nối bot).</p>
+      <div className="tbl"><table><thead><tr><th>Số TK</th><th>Khách</th><th>Sàn</th><th className="r">Chia</th><th>Dữ liệu EA</th></tr></thead><tbody>
         {list.map(a => { const s = status[a.id]; return (
           <tr key={a.id}>
             <td className={editor ? 'click num' : 'num'} onClick={() => editor && openEdit(a)} style={{ cursor: editor ? 'pointer' : 'default' }}>{a.account_no}<div className="small muted">{a.currency}{a.status === 'stopped' ? ' · đã dừng' : ''}</div></td>
             <td>{cname(a.customer_id)}{a.bot_end && <div className="small muted">Bot hết hạn {vnDate(a.bot_end)}</div>}</td><td>{a.broker || ''}<div className="small muted">{a.server || ''}</div></td><td className="r num">{fmt(a.share_pct, 0)}%</td>
             <td>{s?.last_seen ? <><span className={'pill ' + (s.stale_days >= 3 ? 'bad' : 'ok')}>{s.stale_days >= 3 ? 'Ngừng ' + s.stale_days + ' ngày' : 'Đang gửi'}</span><div className="small muted">Lần cuối {new Date(s.last_seen).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })}</div></> : <span className="pill mut">Chưa nhận</span>}</td>
-            <td>{editor ? <span className="row" style={{ gap: 6 }}><span className="key">{a.ingest_key.slice(0, 8)}…</span><button className="btn sm" onClick={() => copy(a.ingest_key)}>Chép</button></span> : '—'}</td>
           </tr>); })}
       </tbody></table></div>
       <datalist id="dl-brokers">{uniq('broker').map(x => <option key={x} value={x} />)}</datalist>
@@ -301,7 +300,6 @@ function AccountsAdmin({ editor, say }) {
             <F label="Mật khẩu VPS (để trống nếu chưa có)"><input id="nv-pass" autoComplete="off" value={e.nv_pass || ''} onChange={ev => set('nv_pass', ev.target.value)} /></F>
           </>}
           <F label="Ghi chú cài đặt" wide><textarea id="acc-note" rows={2} value={e.note || ''} onChange={ev => set('note', ev.target.value)} /></F>
-          {e.id && <F label="Mã khóa EA (dán vào Inputs của EA)" wide><span className="row" style={{ gap: 6 }}><span className="key">{e.ingest_key}</span><button type="button" className="btn sm" onClick={() => copy(e.ingest_key)}>Chép</button></span></F>}
         </div>
       </Modal>}
     </section>
