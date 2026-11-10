@@ -132,6 +132,7 @@ export default function App() {
   const staff = me && ['admin', 'tech', 'core'].includes(me.role);
   const route = hash.split('/').filter(Boolean);
   const inApp = route[0] === 'app' || route[0] === 'admin';
+  useEffect(() => { document.body.classList.toggle('wide', route[0] === 'admin'); }, [route[0]]);
   let page;
   if (!ready) page = <div className="wrap empty">{t('loading')}</div>;
   else if (route[0] === 'news') page = <News />;
@@ -143,7 +144,7 @@ export default function App() {
   else if (route[0] === 'app' && route[1] === 'accounts') page = <Accounts me={me} />;
   else if (route[0] === 'app' && route[1] === 'tree') page = <Tree me={me} />;
   else if (route[0] === 'app') page = <Overview me={me} />;
-  else if (route[0] === 'admin') page = staff ? <Admin me={me} sub={route[1] || (me?.role === 'admin' ? 'overview' : 'accounts')} /> : <div className="wrap empty"><b>403</b></div>;
+  else if (route[0] === 'admin') page = staff ? <Admin me={me} sub={route[1] || (me?.role === 'admin' ? 'overview' : me?.role === 'tech' ? 'botmon' : 'accounts')} arg={route[2]} /> : <div className="wrap empty"><b>403</b></div>;
   else page = <Public />;
 
   const tab = (href, label) => <a href={'#' + href} className={hash === href || (href !== '/app' && hash.startsWith(href)) ? 'on' : ''}>{label}</a>;

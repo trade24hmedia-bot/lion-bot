@@ -98,3 +98,5 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--surface-200)}
 .hero{display:grid;gap:var(--space-3);padding-block:var(--space-4)}
 .hero-logo{width:clamp(120px,22vw,220px);height:auto;filter:drop-shadow(0 0 24px rgba(245,180,40,.25))}
 @media (max-width:600px){.hero{grid-template-columns:minmax(0,1fr)!important}.hero-logo{order:-1;justify-self:center;width:140px}}
+body.wide .wrap{max-width:1680px}
+body.wide table{font-size:15px}
