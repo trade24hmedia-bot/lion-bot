@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { rpc, t, usd, signedUsd, signed, fmt, cls, vnDate, monthLabel, minsAgo } from './lib.js';
+import { tr } from './lib.js';
 import { LineArea } from './Charts.jsx';
 import { usePeriod } from './ui.jsx';
 
@@ -178,14 +179,14 @@ function ShareLinks() {
   const on = (rows || []).filter(r => r.enabled && r.has_master);
   if (!on.length) return null;
   const url = tk => location.origin + '/#/b/' + tk;
-  const copy = async tk => { try { await navigator.clipboard.writeText(url(tk)); setMsg('Đã chép link'); } catch { setMsg(url(tk)); } setTimeout(() => setMsg(''), 2500); };
+  const copy = async tk => { try { await navigator.clipboard.writeText(url(tk)); setMsg(tr('Đã chép link', 'Link copied')); } catch { setMsg(url(tk)); } setTimeout(() => setMsg(''), 2500); };
   return (
     <section className="card">
-      <div className="row"><div className="title grow">🔗 Link chia sẻ nhánh</div>{msg && <span className="pill ok">{msg}</span>}</div>
-      <p className="small muted" style={{ margin: 0 }}>Gửi link này cho khách: không cần đăng nhập vẫn xem được hiệu quả tài khoản master của nhánh (số tài khoản được che).</p>
+      <div className="row"><div className="title grow">🔗 {tr('Link chia sẻ nhánh', 'Branch share link')}</div>{msg && <span className="pill ok">{msg}</span>}</div>
+      <p className="small muted" style={{ margin: 0 }}>{tr('Gửi link này cho khách: không cần đăng nhập vẫn xem được hiệu quả tài khoản master của nhánh (số tài khoản được che).', 'Send this link to customers: they can see the branch master account performance without signing in (account number is masked).')}</p>
       <div className="tbl"><table><tbody>{on.map(r => (
         <tr key={r.system_id}><td><b>{r.name}</b><div className="small muted key" style={{ wordBreak: 'break-all' }}>{url(r.token)}</div></td>
-          <td className="r"><span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><button className="btn pri sm" onClick={() => copy(r.token)}>Chép link</button><a className="btn sm" href={'#/b/' + r.token}>Xem</a></span></td></tr>))}
+          <td className="r"><span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><button className="btn pri sm" onClick={() => copy(r.token)}>{tr('Chép link', 'Copy link')}</button><a className="btn sm" href={'#/b/' + r.token}>{tr('Xem', 'View')}</a></span></td></tr>))}
       </tbody></table></div>
     </section>
   );

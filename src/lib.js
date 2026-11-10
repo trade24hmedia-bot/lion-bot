@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const VERSION = '1.11.1';
+export const VERSION = '1.11.2';
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
 });
@@ -87,6 +87,9 @@ let lang = (() => { try { return localStorage.getItem('lb.lang') || 'vi'; } catc
 export const getLang = () => lang;
 export const setLang = l => { lang = l; try { localStorage.setItem('lb.lang', l); } catch {} };
 export const t = k => (DICT[lang] && DICT[lang][k]) || DICT.vi[k] || k;
+// chữ ngắn hai thứ tiếng ngay tại chỗ dùng
+export const tr = (vi, en) => (lang === 'en' ? en : vi);
+export const locale = () => (lang === 'en' ? 'en-GB' : 'vi-VN');
 
 const loc = () => (lang === 'en' ? 'en-US' : 'vi-VN');
 export const fmt = (v, d = 2) => (v == null || v === '' || isNaN(Number(v)) ? '—' : Number(v).toLocaleString(loc(), { minimumFractionDigits: d, maximumFractionDigits: d }));

@@ -135,7 +135,7 @@ export default function App() {
   useEffect(() => { document.body.classList.toggle('wide', route[0] === 'admin'); }, [route[0]]);
   let page;
   if (!ready) page = <div className="wrap empty">{t('loading')}</div>;
-  else if (route[0] === 'news') page = <News />;
+  else if (route[0] === 'news') page = <News key={getLang()} />;
   else if (route[0] === 'b' && route[1]) page = <Branch token={route[1]} />;
   else if (route[0] === 'set-password') page = session ? <SetPassword session={session} /> : <Login />;
   else if (route[0] === 'login') page = session ? <Redirect to="/app" /> : <Login />;
