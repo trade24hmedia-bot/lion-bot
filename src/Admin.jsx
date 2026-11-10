@@ -357,6 +357,18 @@ function Vps({ editor, say }) {
     if (!error && id && (edit.login_user || edit.password)) ({ error } = await sb.from('vps_secrets').upsert({ vps_id: id, login_user: edit.login_user || null, password: edit.password || null, updated_at: new Date().toISOString() }));
     setSaving(false); if (error) return say(error.message); setEdit(null); load(); say('Đã lưu VPS');
   };
+  // Gia hạn 1 tháng tính từ ngày hết hạn cũ (31/01 → 28/02), chưa có ngày thì tính từ hôm nay
+  const addMonth = iso => { const [y, m, d] = (iso || new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' })).split('-').map(Number); const last = new Date(y, m + 1, 0).getDate(); const x = new Date(y, m, Math.min(d, last)); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+  const renew = async (ev, v) => {
+    ev.stopPropagation();
+    const to = addMonth(v.end_date);
+    if (!confirm(`Gia hạn VPS ${v.name} thêm 1 tháng?\nHết hạn: ${v.end_date ? vnDate(v.end_date) : '—'} → ${vnDate(to)}`)) return;
+    const { error } = await sb.from('vps').update({ end_date: to }).eq('id', v.id);
+    if (error) return say(error.message);
+    const { data: u } = await sb.auth.getUser();
+    await sb.from('renewals').insert({ kind: 'vps', vps_id: v.id, action: 'renew', package: '1 tháng', from_date: v.end_date, to_date: to, done_by: u?.user?.email || null });
+    load(); say(`Đã gia hạn ${v.name} đến ${vnDate(to)}`);
+  };
   const del = async () => { const { error } = await sb.from('vps').delete().eq('id', edit.id); if (error) return say(error.message); setEdit(null); load(); say('Đã xóa VPS'); };
   if (err) return <div className="card neg">{err}</div>;
   if (!rows) return <div className="empty">Đang tải…</div>;
@@ -374,12 +386,13 @@ function Vps({ editor, say }) {
         {soon > 0 && <span className="pill warn" style={{ marginRight: 8 }}>{soon} VPS hết hạn trong 3 ngày</span>}
         {free > 0 && <span className="pill mut" style={{ marginRight: 8 }}>{free} tài khoản đang chạy chưa gán VPS</span>}
         Mật khẩu VPS chỉ Quản lý và Kỹ thuật xem được. Gán VPS cho tài khoản ở tab Tài khoản.</p>
-      <div className="tbl"><table><thead><tr><th>VPS</th><th>Cấu hình</th><th>Hết hạn</th><th className="r">Phí/kỳ</th><th>Tài khoản đang chạy</th></tr></thead><tbody>
+      <div className="tbl"><table><thead><tr><th>VPS</th><th>Cấu hình</th><th>Hết hạn</th><th className="r">Phí/kỳ</th><th>Tài khoản đang chạy</th>{editor && <th />}</tr></thead><tbody>
         {list.map(v => { const on = onVps(v.id); return (
           <tr key={v.id} className={editor ? 'click' : ''} onClick={() => editor && openEdit(v)}>
             <td className="num">{v.name}<div className="small muted">{v.provider || ''}</div></td>
             <td>{v.spec || ''}</td><td><DueTag date={v.end_date} /></td><td className="r num">{v.fee_usd != null ? '$' + fmt(v.fee_usd) : ''}</td>
             <td>{on.length ? on.map(a => <div key={a.id} className="small"><span className="num">{a.account_no}</span> <span className="muted">· {cname(a.customer_id)}</span></div>) : <span className="muted small">Trống</span>}</td>
+            {editor && <td className="r"><button className={'btn sm' + (daysLeft(v.end_date) != null && daysLeft(v.end_date) <= 7 ? ' pri' : '')} onClick={ev => renew(ev, v)}>Gia hạn +1 tháng</button></td>}
           </tr>); })}
       </tbody></table></div>
       {edit && <Modal title={edit.id ? 'Sửa VPS' : 'Thêm VPS'} onClose={() => setEdit(null)} onSave={save} saving={saving}
