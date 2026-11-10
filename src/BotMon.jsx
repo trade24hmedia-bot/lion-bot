@@ -307,7 +307,7 @@ function Presets({ say }) {
             <td className="num">{money(p.cap_min)} – {money(p.cap_max)}</td><td className="r num">{Object.keys(p.settings || {}).length}</td><td className="r num">{p.accounts}</td>
             <td className={'r num ' + (p.mismatch ? 'neg' : '')}>{p.mismatch}</td><td className="small muted">{vn(p.updated_at)}{p.updated_by && <div>{p.updated_by}</div>}</td>
             <td className="r"><span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><button className="btn sm" onClick={() => { setSrc(''); setEdit({ ...p, settings: { ...p.settings } }); }}>Sửa</button><button className="btn sm" onClick={() => del(p)}>Xóa</button></span></td></tr>)}
-        </tbody></table></div> : <div className="empty">Chưa có bộ chuẩn nào. Bấm <b>+ Thêm bộ chuẩn</b>, chọn "Chép từ tài khoản" một TK đang chạy đúng rồi bỏ bớt thông số không cần kiểm.</div>}
+        </tbody></table></div> : <div className="empty"><span>Chưa có bộ chuẩn nào. Bấm <b>+ Thêm bộ chuẩn</b>, chọn "Chép từ tài khoản" một TK đang chạy đúng rồi bỏ bớt thông số không cần kiểm.</span></div>}
       </section>
 
       <section className="card">
