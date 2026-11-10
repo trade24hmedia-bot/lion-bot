@@ -355,3 +355,74 @@ export function Telegram({ say }) {
     </>
   );
 }
+
+// ------------------------------------------------------------ Kết nối bot theo số TK (chỉ quản lý)
+const FN_ACC = ['ingest_status_acc', 'ingest_daily_acc', 'ingest_event_acc', 'ingest_config_acc'];
+export function BotLink({ say }) {
+  const [d, setD] = useState(null); const [err, setErr] = useState('');
+  const [paste, setPaste] = useState(''); const [keepOld, setKeepOld] = useState(true); const [shown, setShown] = useState('');
+  const load = useCallback(() => rpc('bot_link_settings').then(setD).catch(e => setErr(e.message)), []);
+  useEffect(() => { load(); const id = setInterval(load, 30000); return () => clearInterval(id); }, [load]);
+  if (err) return <div className="card neg">{err}</div>;
+  if (!d) return <div className="empty">Đang tải…</div>;
+  const base = (import.meta.env.VITE_SUPABASE_URL || 'https://sypkzdcazdzekmgmgfhu.supabase.co') + '/rest/v1/rpc/';
+  const copy = async v => { try { await navigator.clipboard.writeText(v); say('Đã chép'); } catch { say(v); } };
+  const gen = async () => { if (d.has_secret && !confirm('Tạo mã bí mật mới? ' + (keepOld ? 'Mã hiện tại vẫn dùng được (mã cũ) đến khi anh bấm "Bỏ mã cũ".' : 'Mã hiện tại sẽ NGỪNG dùng ngay, bot đang chạy sẽ bị từ chối.'))) return; try { const v = await rpc('bot_secret_generate', { p_keep_old: keepOld }); setShown(v); load(); } catch (x) { say(x.message); } };
+  const save = async e => { e.preventDefault(); try { await rpc('bot_secret_set', { p_secret: paste.trim(), p_keep_old: keepOld }); setPaste(''); load(); say('Đã lưu mã bí mật'); } catch (x) { say(x.message); } };
+  const reveal = async () => { if (!confirm('Hiện mã bí mật trên màn hình? Chỉ làm khi không có ai xem màn hình.')) return; try { setShown(await rpc('bot_secret_reveal')); } catch (x) { say(x.message); } };
+  const dropOld = async () => { if (!confirm('Bỏ mã cũ? Bot chưa cập nhật mã mới sẽ bị từ chối.')) return; try { await rpc('bot_secret_drop_old'); load(); say('Đã bỏ mã cũ'); } catch (x) { say(x.message); } };
+  const st = d.stats || {};
+  return (
+    <>
+      <section className="card">
+        <div className="title">Kết nối bot theo số tài khoản MT5</div>
+        <p className="small muted" style={{ margin: 0 }}>Bot gửi dữ liệu kèm <b>số tài khoản + server</b> và <b>chữ ký HMAC-SHA256</b> bằng mã bí mật chung. Khách không phải nhập gì trên MT5. Tài khoản lạ tự vào mục <a href="#/admin/accounts">Chờ duyệt</a>. Cách cũ (mã riêng từng tài khoản) vẫn chạy song song.</p>
+        <div className="kpis">
+          <div className="kpi"><span className="label">Lần gửi 24 giờ</span><span className="num-xl">{st.calls_24h || 0}</span><span className="sub">thành công {st.ok_24h || 0}</span></div>
+          <div className="kpi"><span className="label">Tài khoản gửi 24 giờ</span><span className="num-xl">{st.accounts_24h || 0}</span></div>
+          <div className="kpi"><span className="label">Kiểm 4 ví dụ của bên bot</span><span className={'num-xl ' + ((d.selftest || []).every(x => x.ok) ? 'pos' : 'neg')}>{(d.selftest || []).filter(x => x.ok).length}/4</span><span className="sub">tính trên máy chủ web</span></div>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="row"><div className="title grow">1. Mã bí mật bot (BOT_SECRET)</div>
+          {d.has_secret ? <span className="pill ok">Đang dùng · {d.hint}</span> : <span className="pill bad">Chưa có</span>}
+          {d.has_old && <span className="pill warn">Mã cũ vẫn nhận · {d.hint_old}</span>}</div>
+        <p className="small muted" style={{ margin: 0 }}>Chỉ gửi mã cho bên bot qua kênh riêng (Zalo / Telegram cá nhân), <b>không</b> gửi vào nhóm. Đổi mã: giữ tick "vẫn nhận mã cũ" cho đến khi mọi bot đã cập nhật bản mới, rồi bấm <b>Bỏ mã cũ</b>.</p>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" style={{ width: 18, height: 18 }} checked={keepOld} onChange={e => setKeepOld(e.target.checked)} /> Khi đổi mã: vẫn nhận mã cũ trong thời gian chuyển</label>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn pri" onClick={gen}>{d.has_secret ? 'Tạo mã mới' : 'Tạo mã bí mật'}</button>
+          {d.has_secret && <button className="btn" onClick={reveal}>Xem mã hiện tại</button>}
+          {d.has_old && <button className="btn" onClick={dropOld}>Bỏ mã cũ</button>}
+        </div>
+        {shown && <div className="card" style={{ background: 'var(--surface-200)' }}>
+          <span className="small muted">Mã bí mật (chép gửi riêng cho bên bot, rồi bấm Ẩn):</span>
+          <span className="row" style={{ gap: 8 }}><span className="key" style={{ wordBreak: 'break-all' }}>{shown}</span><button className="btn sm" onClick={() => copy(shown)}>Chép</button><button className="btn sm" onClick={() => setShown('')}>Ẩn</button></span>
+        </div>}
+        <form className="row" onSubmit={save} style={{ gap: 8 }}>
+          <label className="field" style={{ flex: '1 1 320px' }}><input id="bot-secret" type="password" autoComplete="off" placeholder="Hoặc dán mã do bên bot gửi (≥ 32 ký tự)" value={paste} onChange={e => setPaste(e.target.value)} /></label>
+          <button className="btn" disabled={paste.trim().length < 32}>Lưu mã dán vào</button>
+        </form>
+      </section>
+
+      <section className="card">
+        <div className="title">2. Thông tin gửi bên bot</div>
+        <div className="tbl"><table><tbody>
+          {FN_ACC.map(f => <tr key={f}><td className="key" style={{ wordBreak: 'break-all' }}>POST {base}{f}</td><td className="r"><button className="btn sm" onClick={() => copy(base + f)}>Chép</button></td></tr>)}
+          <tr><td className="small">Header: <span className="key">apikey</span> + <span className="key">Authorization: Bearer</span> = khóa anon (như gói EA hiện tại) · body: <span className="key">{'{"p": {...}}'}</span></td><td /></tr>
+          <tr><td className="small">Giờ máy chủ web lúc tải trang: <span className="key">{d.now}</span> (giây unix UTC) · cho phép lệch ±900 giây · tối đa 20 lần / phút / tài khoản</td><td /></tr>
+        </tbody></table></div>
+        <div className="small">{(d.selftest || []).map(x => <div key={x.msg}>{x.ok ? '✅' : '❌'} <span className="key">{x.msg}</span></div>)}</div>
+      </section>
+
+      <section className="card">
+        <div className="title">3. Nhật ký nhận gần đây (tự cập nhật 30 giây)</div>
+        {d.log.length ? <div className="tbl" style={{ maxHeight: 420, overflowY: 'auto' }}><table><thead><tr><th>Lúc (giờ VN)</th><th>Hàm</th><th>Số TK</th><th>Server</th><th>Kết quả</th></tr></thead><tbody>
+          {d.log.map(l => <tr key={l.id}><td className="small" style={{ whiteSpace: 'nowrap' }}>{new Date(l.at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' })}</td>
+            <td className="small">{l.fn}</td><td className="num small">{l.login}</td><td className="small">{l.server}</td>
+            <td>{l.ok ? <span className="pill ok">{l.error === 'duplicate' ? 'Trùng, bỏ qua' : 'OK'}</span> : <span className="pill bad">{l.error}</span>}</td></tr>)}
+        </tbody></table></div> : <div className="empty">Chưa nhận lần nào</div>}
+      </section>
+    </>
+  );
+}

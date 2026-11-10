@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { sb, fmt, vnDate, rpc } from './lib.js';
 import { Toast, Modal, F, useTable } from './ui.jsx';
-import { FinOverview, Balance, Profit, Telegram } from './AdminFinance.jsx';
+import { FinOverview, Balance, Profit, Telegram, BotLink } from './AdminFinance.jsx';
 
 // Quản trị cơ bản (đợt 1): hệ thống, khách hàng, tài khoản + mã khóa EA, người dùng.
 // Chỉ admin / tech được ghi (phân quyền trong cơ sở dữ liệu), core chỉ xem.
@@ -13,7 +13,7 @@ export default function Admin({ me, sub }) {
   const [toast, setToast] = useState('');
   const say = m => { setToast(m); setTimeout(() => setToast(''), 2800); };
   const isAdmin = me?.role === 'admin';
-  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ['accounts', 'Tài khoản & mã EA'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram']] : [])] : [])];
+  const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ['accounts', 'Tài khoản & mã EA'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram'], ['botlink', 'Kết nối bot']] : [])] : [])];
   return (
     <main className="wrap">
       <div className="row"><h1 className="h-lg grow">Quản trị</h1>
@@ -23,6 +23,7 @@ export default function Admin({ me, sub }) {
         : isAdmin && sub === 'balance' ? <Balance say={say} />
         : isAdmin && sub === 'profit' ? <Profit say={say} />
         : isAdmin && sub === 'telegram' ? <Telegram say={say} />
+        : isAdmin && sub === 'botlink' ? <BotLink say={say} />
         : sub === 'customers' ? <Customers editor={editor} say={say} />
         : sub === 'systems' ? <Systems editor={editor} say={say} />
         : sub === 'users' ? <Users say={say} />
@@ -196,7 +197,7 @@ function AccountsAdmin({ editor, say }) {
       const body = { customer_id, account_no: e.account_no.trim(), broker: e.broker?.trim() || null, server: e.server?.trim() || null, platform: e.platform || 'MT5',
         currency: e.currency || 'USD', share_pct: n(e.share_pct) ?? 30, bot_name: e.bot_name || null, bot_version: e.bot_version || null, package: e.package || null,
         bot_start: e.bot_start || null, bot_end: e.bot_end || null, status: e.status || 'active', open_balance: n(e.open_balance), open_date: e.open_date || null,
-        note: e.note || null, vps_id };
+        note: e.note || null, vps_id, approved: true };
       let id = e.id;
       if (id) { const r = await sb.from('accounts').update(body).eq('id', id); if (r.error) throw r.error; }
       else {
@@ -215,12 +216,32 @@ function AccountsAdmin({ editor, say }) {
   const cname = id => custs?.find(c => c.id === id)?.name || '—';
   const sname = id => systems?.find(x => x.id === id)?.name || '';
   const uniq = k => Array.from(new Set(rows.map(r => r[k]).filter(Boolean))).sort();
-  const list = rows.filter(a => !q || (a.account_no + ' ' + cname(a.customer_id) + ' ' + (a.broker || '')).toLowerCase().includes(q.toLowerCase()));
+  const pending = rows.filter(a => a.approved === false || a.blocked);
+  const list = rows.filter(a => a.approved !== false && (!q || (a.account_no + ' ' + cname(a.customer_id) + ' ' + (a.broker || '')).toLowerCase().includes(q.toLowerCase())));
   const vUse = id => rows.filter(a => a.vps_id === id).length;
   const e = edit;
-  return (
+  const setBlock = async (a, v) => { if (v && !confirm('Chặn tài khoản ' + a.account_no + '? Web sẽ bỏ qua mọi dữ liệu bot gửi từ tài khoản này.')) return; const { error } = await sb.from('accounts').update({ blocked: v }).eq('id', a.id); if (error) return say(error.message); load(); say(v ? 'Đã chặn' : 'Đã bỏ chặn'); };
+  const delPending = async a => { if (!confirm('Xóa tài khoản chờ duyệt ' + a.account_no + ' cùng dữ liệu đã nhận?')) return; const { error } = await sb.from('accounts').delete().eq('id', a.id); if (error) return say(error.message); load(); say('Đã xóa'); };
+  const ago = ts => { if (!ts) return '—'; const m = Math.round((Date.now() - new Date(ts)) / 60000); return m < 1 ? 'vừa xong' : m < 60 ? m + ' phút trước' : m < 1440 ? Math.floor(m / 60) + ' giờ trước' : Math.floor(m / 1440) + ' ngày trước'; };
+  return (<>
+    {pending.length > 0 && <section className="card" style={{ borderColor: 'var(--brand)' }}>
+      <div className="row"><div className="title grow">🆕 Tài khoản chờ duyệt / bị chặn ({pending.length})</div></div>
+      <p className="small muted" style={{ margin: 0 }}>Bot gửi dữ liệu theo số tài khoản nên web tự tạo các tài khoản này. Bấm <b>Duyệt</b> để gán khách, tỷ lệ chia, VPS… Chưa duyệt thì <b>không</b> tính vào số liệu khách, chia lợi nhuận hay trang công khai.</p>
+      <div className="tbl"><table><thead><tr><th>Số TK</th><th>Sàn / server</th><th>Bot</th><th>Lần gửi</th><th></th></tr></thead><tbody>
+        {pending.map(a => <tr key={a.id}>
+          <td className="num">{a.account_no}<div className="small muted">{a.currency}{a.blocked ? ' · ' : ''}{a.blocked && <span className="pill bad">Đã chặn</span>}</div></td>
+          <td>{a.company || a.broker || '—'}<div className="small muted">{a.server || ''}</div></td>
+          <td className="small">{a.bot_reported || '—'}<div className="small muted">{a.bot_build || ''}</div></td>
+          <td className="small">Đầu: {a.first_seen ? new Date(a.first_seen).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }) : '—'}<div className="small muted">Cuối: {ago(a.last_seen)}</div></td>
+          <td className="r">{editor && <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+            {a.approved === false && <button className="btn pri sm" onClick={() => openEdit(a)}>Duyệt</button>}
+            {a.blocked ? <button className="btn sm" onClick={() => setBlock(a, false)}>Bỏ chặn</button> : <button className="btn sm" onClick={() => setBlock(a, true)}>Chặn</button>}
+            {a.approved === false && <button className="btn sm" onClick={() => delPending(a)}>Xóa</button>}</span>}</td>
+        </tr>)}
+      </tbody></table></div>
+    </section>}
     <section className="card">
-      <div className="row"><div className="title grow">Tài khoản giao dịch ({rows.length})</div>
+      <div className="row"><div className="title grow">Tài khoản giao dịch ({list.length})</div>
         <label className="field" style={{ width: 'min(260px,100%)' }}><input id="acc-q" type="search" placeholder="Tìm số TK, khách, sàn…" value={q} onChange={ev => setQ(ev.target.value)} /></label>
         {editor && <button className="btn pri" onClick={openNew}>+ Thêm tài khoản</button>}</div>
       <p className="small muted" style={{ margin: 0 }}>Kỹ thuật nhập sau khi cài bot. Mỗi tài khoản có một <b>mã khóa EA</b> riêng: dán mã này vào Inputs của EA trên đúng tài khoản đó.</p>
@@ -284,7 +305,7 @@ function AccountsAdmin({ editor, say }) {
         </div>
       </Modal>}
     </section>
-  );
+  </>);
 }
 
 // ------------------------------------------------------------ người dùng
