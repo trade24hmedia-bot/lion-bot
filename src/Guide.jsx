@@ -13,7 +13,10 @@ export const SECTIONS = [
   ['copy', 'Cài đặt copy bot', 'Set up bot copying'],
   ['other', 'Lưu ý khác', 'Other notes']
 ];
-const secName = k => { const s = SECTIONS.find(x => x[0] === k) || SECTIONS[4]; return getLang() === 'en' ? s[2] : s[1]; };
+// mục của 1 sàn: lấy từ bảng guide_sections; sàn chưa có thì dùng 5 mục mặc định
+const secsOf = (all, bid) => { const l = (all || []).filter(x => x.broker_id === bid).sort((a, b) => a.sort - b.sort);
+  return l.length ? l : SECTIONS.map(([key, name, name_en], i) => ({ key, name, name_en, sort: (i + 1) * 10, _default: true })); };
+const secLabel = x => (getLang() === 'en' && x?.name_en ? x.name_en : x?.name || '');
 const pick = (vi, en) => (getLang() === 'en' && en ? en : vi);
 
 // link video → khung xem
@@ -45,16 +48,16 @@ function Logo({ b, size = 56 }) {
 
 // ------------------------------------------------------------ trang khách
 export default function Guide({ slug }) {
-  const [brokers, setBrokers] = useState(null); const [steps, setSteps] = useState([]); const [err, setErr] = useState('');
+  const [brokers, setBrokers] = useState(null); const [steps, setSteps] = useState([]); const [secs, setSecs] = useState([]); const [err, setErr] = useState('');
   useEffect(() => {
-    Promise.all([sb.from('guide_brokers').select('*').eq('published', true).order('sort').order('name'), sb.from('guide_steps').select('id,broker_id,section,sort,title,title_en,body,body_en,images,video_url').order('sort')])
-      .then(([a, b]) => { if (a.error) throw a.error; setBrokers(a.data); setSteps(b.data || []); }).catch(e => setErr(e.message));
+    Promise.all([sb.from('guide_brokers').select('*').eq('published', true).order('sort').order('name'), sb.from('guide_steps').select('id,broker_id,section,sort,title,title_en,body,body_en,images,video_url').order('sort'), sb.from('guide_sections').select('*').order('sort')])
+      .then(([a, b, c]) => { if (a.error) throw a.error; setBrokers(a.data); setSteps(b.data || []); setSecs(c.data || []); }).catch(e => setErr(e.message));
   }, []);
   if (err) return <main className="wrap"><div className="card neg">{err}</div></main>;
   if (!brokers) return <main className="wrap"><div className="empty">{tr('Đang tải…', 'Loading…')}</div></main>;
   const b = slug && brokers.find(x => x.slug === slug);
   if (slug && !b) return <main className="wrap"><div className="card empty"><b>{tr('Không tìm thấy sàn này', 'Broker not found')}</b><a className="btn" href="#/guide">← {tr('Danh sách sàn', 'All brokers')}</a></div></main>;
-  if (b) return <BrokerGuide b={b} steps={steps.filter(s => s.broker_id === b.id)} />;
+  if (b) return <BrokerGuide b={b} steps={steps.filter(s => s.broker_id === b.id)} sections={secsOf(secs, b.id)} />;
   return (
     <main className="wrap">
       <section className="hero">
@@ -75,13 +78,14 @@ export default function Guide({ slug }) {
   );
 }
 
-function BrokerGuide({ b, steps }) {
-  const secs = SECTIONS.map(s => s[0]).filter(k => steps.some(x => x.section === k));
+function BrokerGuide({ b, steps, sections }) {
+  const secs = sections.map(s => s.key).filter(k => steps.some(x => x.section === k));
+  const secName = k => secLabel(sections.find(x => x.key === k));
   const [sec, setSec] = useState(secs[0] || 'register'); const [zoom, setZoom] = useState(null); const [msg, setMsg] = useState('');
   useEffect(() => { const f = e => e.key === 'Escape' && setZoom(null); addEventListener('keydown', f); return () => removeEventListener('keydown', f); }, []);
   const list = steps.filter(x => x.section === sec).sort((x, y) => x.sort - y.sort);
   const copy = async v => { try { await navigator.clipboard.writeText(v); setMsg(tr('Đã chép', 'Copied')); } catch { setMsg(v); } setTimeout(() => setMsg(''), 2000); };
-  const before = SECTIONS.map(s => s[0]).filter(k => secs.includes(k)).indexOf(sec);
+  const before = secs.indexOf(sec);
   const offset = secs.slice(0, before).reduce((n, k) => n + steps.filter(x => x.section === k).length, 0);
   return (
     <main className="wrap">
@@ -148,15 +152,43 @@ const removeFiles = urls => { const p = urls.map(pathOf).filter(Boolean); if (p.
 export function GuideAdmin({ say }) {
   const [brokers, setBrokers] = useState(null); const [steps, setSteps] = useState([]); const [sel, setSel] = useState(null);
   const [eb, setEb] = useState(null); const [es, setEs] = useState(null); const [saving, setSaving] = useState(false); const [busy, setBusy] = useState('');
+  const [secs, setSecs] = useState([]); const [ec, setEc] = useState(null);
   const load = useCallback(async () => {
-    const [a, b] = await Promise.all([sb.from('guide_brokers').select('*').order('sort').order('name'), sb.from('guide_steps').select('*').order('sort')]);
+    const [a, b, c] = await Promise.all([sb.from('guide_brokers').select('*').order('sort').order('name'), sb.from('guide_steps').select('*').order('sort'), sb.from('guide_sections').select('*').order('sort')]);
     if (a.error) return say(a.error.message);
-    setBrokers(a.data); setSteps(b.data || []); setSel(s => s || a.data[0]?.id || null);
+    setBrokers(a.data); setSteps(b.data || []); setSecs(c.data || []); setSel(s => s || a.data[0]?.id || null);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
   if (!brokers) return <div className="empty">Đang tải…</div>;
   const b = brokers.find(x => x.id === sel);
   const bs = steps.filter(s => s.broker_id === sel);
+  const bsec = secsOf(secs, sel);
+
+  // ---- mục: lưu thứ tự 10, 20, 30… cho cả danh sách (mỗi sàn chỉ vài mục)
+  const saveOrder = async list => {
+    const rows = list.map((x, i) => ({ broker_id: sel, key: x.key, name: x.name, name_en: x.name_en || null, sort: (i + 1) * 10 }));
+    const { error } = await sb.from('guide_sections').upsert(rows, { onConflict: 'broker_id,key' });
+    if (error) { say(error.message); return false; } return true;
+  };
+  const saveSection = async () => {
+    if (!ec.name?.trim()) return say('Nhập tên mục');
+    setSaving(true);
+    const item = { key: ec.key || 's' + Date.now().toString(36), name: ec.name.trim(), name_en: ec.name_en?.trim() || null };
+    let list = bsec.filter(x => x.key !== item.key);
+    const at = ec.after === '__first' ? 0 : list.findIndex(x => x.key === ec.after) + 1 || list.length;
+    list.splice(at, 0, item);
+    const ok = await saveOrder(list); setSaving(false);
+    if (ok) { setEc(null); load(); say(ec.key ? 'Đã lưu mục' : 'Đã thêm mục "' + item.name + '"'); }
+  };
+  const moveSection = async (i, d) => { const l = [...bsec]; const j = i + d; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; if (await saveOrder(l)) load(); };
+  const delSection = async () => {
+    const own = bs.filter(x => x.section === ec.key);
+    if (!confirm(own.length ? `Xóa mục "${ec.name}" và ${own.length} bước bên trong?` : `Xóa mục "${ec.name}"?`)) return;
+    if (bsec[0]?._default && !(await saveOrder(bsec))) return;
+    if (own.length) { const { error } = await sb.from('guide_steps').delete().eq('broker_id', sel).eq('section', ec.key); if (error) return say(error.message); removeFiles(own.flatMap(x => [...(x.images || []), x.video_url])); }
+    const { error } = await sb.from('guide_sections').delete().eq('broker_id', sel).eq('key', ec.key); if (error) return say(error.message);
+    setEc(null); load(); say('Đã xóa mục');
+  };
 
   const up = async (files, key, multi) => {
     if (!files?.length) return; setBusy(key);
@@ -176,6 +208,7 @@ export function GuideAdmin({ say }) {
     const r = eb.id ? await sb.from('guide_brokers').update(body).eq('id', eb.id).select('id').single() : await sb.from('guide_brokers').insert(body).select('id').single();
     setSaving(false);
     if (r.error) return say(/duplicate|unique/i.test(r.error.message) ? 'Mã đường dẫn đã có sàn khác dùng' : r.error.message);
+    if (!eb.id) await sb.from('guide_sections').insert(SECTIONS.map(([key, name, name_en], i) => ({ broker_id: r.data.id, key, name, name_en, sort: (i + 1) * 10 })));
     setEb(null); setSel(r.data.id); load(); say('Đã lưu sàn');
   };
   const delBroker = async () => {
@@ -214,7 +247,7 @@ export function GuideAdmin({ say }) {
         <div className="row"><div className="title grow">Hướng dẫn mở tài khoản & copy bot</div>
           <a className="btn" href="#/guide" target="_blank" rel="noopener noreferrer">Xem trang khách ↗</a>
           <button className="btn pri" onClick={() => setEb({ name: '', slug: '', sort: (brokers.length + 1), published: true })}>+ Thêm sàn</button></div>
-        <p className="small muted" style={{ margin: 0 }}>Khách xem ở <b>lion-bot.pages.dev/#/guide</b>, không cần đăng nhập. Mỗi sàn chia mục: Đăng ký → Xác minh → Nạp tiền → Cài copy bot. Ảnh chụp màn hình tự thu nhỏ khi tải lên. Video ngắn tải thẳng (≤ 50MB); video dài nên đưa lên YouTube để <b>Không công khai</b> rồi dán link (xem mượt hơn, không tốn dung lượng web).</p>
+        <p className="small muted" style={{ margin: 0 }}>Khách xem ở <b>lion-bot.pages.dev/#/guide</b>, không cần đăng nhập. Mỗi sàn có các mục riêng (Đăng ký → Xác minh → Nạp tiền → Cài copy bot…): bấm <b>+ Thêm mục bên dưới</b> để chèn mục mới đúng vị trí, <b>Sửa mục</b> để đổi tên / chuyển vị trí / xóa. Ảnh chụp màn hình tự thu nhỏ khi tải lên. Video ngắn tải thẳng (≤ 50MB); video dài nên đưa lên YouTube để <b>Không công khai</b> rồi dán link (xem mượt hơn, không tốn dung lượng web).</p>
         <div className="seg" style={{ justifySelf: 'start', flexWrap: 'wrap' }}>{brokers.map(x => <button key={x.id} className={sel === x.id ? 'on' : ''} onClick={() => setSel(x.id)}>{x.name} <span className="muted small">({steps.filter(s => s.broker_id === x.id).length})</span>{!x.published && ' 🔒'}</button>)}</div>
       </section>
 
@@ -223,10 +256,14 @@ export function GuideAdmin({ say }) {
           <div className="small muted">#/guide/{b.slug}{b.ref_link ? ' · có link đăng ký' : ' · chưa có link đăng ký'}{b.ref_code ? ' · mã ' + b.ref_code : ''}</div></div>
           <a className="btn sm" href={'#/guide/' + b.slug} target="_blank" rel="noopener noreferrer">Xem ↗</a>
           <button className="btn sm" onClick={() => setEb({ ...b })}>Sửa thông tin sàn</button></div>
-        {SECTIONS.map(([k, l]) => { const list = bs.filter(s => s.section === k).sort((x, y) => x.sort - y.sort); return (
-          <div key={k} style={{ display: 'grid', gap: 8 }}>
-            <div className="row"><b className="grow">{l} <span className="muted small">({list.length})</span></b>
-              <button className="btn sm" onClick={() => setEs({ section: k, title: '', body: '', images: [], video_url: '' })}>+ Thêm bước</button></div>
+        {bsec.map((sc, si) => { const k = sc.key, l = sc.name; const list = bs.filter(s => s.section === k).sort((x, y) => x.sort - y.sort); return (
+          <div key={k} style={{ display: 'grid', gap: 8, borderTop: si ? '1px solid var(--line)' : 0, paddingTop: si ? 12 : 0 }}>
+            <div className="row"><b className="grow">{si + 1}. {l} <span className="muted small">({list.length} bước){sc.name_en ? ' · ' + sc.name_en : ''}</span></b>
+              <button className="btn sm" disabled={!si} onClick={() => moveSection(si, -1)} title="Đưa mục lên trên">↑</button>
+              <button className="btn sm" disabled={si === bsec.length - 1} onClick={() => moveSection(si, 1)} title="Đưa mục xuống dưới">↓</button>
+              <button className="btn sm" onClick={() => setEc({ ...sc, after: bsec[si - 1]?.key || '__first' })}>Sửa mục</button>
+              <button className="btn sm" onClick={() => setEc({ name: '', name_en: '', after: k })}>+ Thêm mục bên dưới</button>
+              <button className="btn sm pri" onClick={() => setEs({ section: k, title: '', body: '', images: [], video_url: '' })}>+ Thêm bước</button></div>
             {list.map((s, i) => <div key={s.id} className="row" style={{ background: 'var(--surface-200)', borderRadius: 'var(--radius-md)', padding: '8px 12px', flexWrap: 'nowrap' }}>
               <span className="num muted" style={{ width: 22 }}>{i + 1}</span>
               {s.images?.[0] ? <img src={s.images[0]} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, flex: 'none' }} /> : <span style={{ width: 48, height: 48, flex: 'none' }} />}
@@ -252,10 +289,21 @@ export function GuideAdmin({ say }) {
         </div>
       </Modal>}
 
+      {ec && <Modal title={ec.key ? 'Sửa mục' : 'Thêm mục · ' + (b?.name || '')} onClose={() => setEc(null)} onSave={saveSection} saving={saving}
+        extra={ec.key && <button type="button" className="btn" onClick={delSection}>Xóa mục</button>}>
+        <div className="form">
+          <F label="Tên mục"><input id="gc-name" value={ec.name} onChange={e => setEc({ ...ec, name: e.target.value })} placeholder="Tạo tài khoản giao dịch" autoFocus /></F>
+          <F label="Tên tiếng Anh (không bắt buộc)"><input id="gc-name-en" value={ec.name_en || ''} onChange={e => setEc({ ...ec, name_en: e.target.value })} placeholder="Create a trading account" /></F>
+          <F label="Vị trí" wide><select id="gc-after" value={ec.after} onChange={e => setEc({ ...ec, after: e.target.value })}>
+            <option value="__first">Đứng đầu tiên</option>
+            {bsec.filter(x => x.key !== ec.key).map(x => <option key={x.key} value={x.key}>Sau mục "{x.name}"</option>)}</select></F>
+        </div>
+      </Modal>}
+
       {es && <Modal title={es.id ? 'Sửa bước' : 'Thêm bước · ' + (b?.name || '')} onClose={() => setEs(null)} onSave={saveStep} saving={saving || !!busy}
         extra={es.id && <button type="button" className="btn" onClick={delStep}>Xóa bước</button>}>
         <div className="form">
-          <F label="Mục"><select id="gs-sec" value={es.section} onChange={e => setEs({ ...es, section: e.target.value })}>{SECTIONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></F>
+          <F label="Mục"><select id="gs-sec" value={es.section} onChange={e => setEs({ ...es, section: e.target.value })}>{bsec.map(x => <option key={x.key} value={x.key}>{x.name}</option>)}</select></F>
           <F label="Tiêu đề bước"><input id="gs-title" value={es.title} onChange={e => setEs({ ...es, title: e.target.value })} placeholder="Bấm link đăng ký và điền email" /></F>
           <F label="Nội dung hướng dẫn" wide><textarea id="gs-body" rows={4} value={es.body || ''} onChange={e => setEs({ ...es, body: e.target.value })} placeholder={'Viết ngắn gọn từng thao tác, mỗi ý 1 dòng.\nCó thể dán link, khách bấm được.'} /></F>
           <F label="Ảnh chụp màn hình (chọn được nhiều ảnh)" wide>
