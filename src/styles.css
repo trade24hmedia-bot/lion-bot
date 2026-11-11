@@ -100,3 +100,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--surface-200)}
 @media (max-width:600px){.hero{grid-template-columns:minmax(0,1fr)!important}.hero-logo{order:-1;justify-self:center;width:140px}}
 body.wide .wrap{max-width:1680px}
 body.wide table{font-size:15px}
+/* Hướng dẫn: 3 sàn / hàng trên máy tính, 2 trên máy tính bảng, 1 trên điện thoại */
+.guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-5,24px)}
+.guide-grid>.card{padding:28px}
+@media (max-width:960px){.guide-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.guide-grid{grid-template-columns:1fr}}

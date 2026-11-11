@@ -65,11 +65,11 @@ export default function Guide({ slug }) {
         <h1 className="h-display" style={{ margin: 0 }}>{tr('Mở tài khoản & copy bot', 'Open an account & copy the bot')}</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 680 }}>{tr('Chọn sàn bạn dùng để xem hướng dẫn từng bước bằng hình ảnh và video: đăng ký, xác minh, nạp tiền và cài đặt copy bot Lion Bot.', 'Pick your broker to see step-by-step guides with screenshots and video: sign up, verify, deposit and set up Lion Bot copying.')}</p>
       </section>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,260px),1fr))', gap: 'var(--space-4)' }}>
+      <div className="guide-grid">
         {brokers.map(x => { const n = steps.filter(s => s.broker_id === x.id).length; return (
           <a key={x.id} href={'#/guide/' + x.slug} className="card" style={{ color: 'var(--ink)', textDecoration: 'none', border: '1px solid var(--line)', alignContent: 'start' }}>
-            <div className="row" style={{ flexWrap: 'nowrap' }}><Logo b={x} /><div style={{ minWidth: 0 }}><div className="title">{x.name}</div><div className="small muted">{n ? n + tr(' bước hướng dẫn', ' steps') : tr('Đang cập nhật', 'Coming soon')}</div></div></div>
-            {pick(x.intro, x.intro_en) && <p className="small muted" style={{ margin: 0 }}>{pick(x.intro, x.intro_en)}</p>}
+            <div className="row" style={{ flexWrap: 'nowrap', gap: 16 }}><Logo b={x} size={84} /><div style={{ minWidth: 0 }}><div className="title" style={{ fontSize: 24 }}>{x.name}</div><div className="small muted">{n ? n + tr(' bước hướng dẫn', ' steps') : tr('Đang cập nhật', 'Coming soon')}</div></div></div>
+            {pick(x.intro, x.intro_en) && <p className="muted" style={{ margin: 0 }}>{pick(x.intro, x.intro_en)}</p>}
             <span className="btn pri" style={{ justifySelf: 'start' }}>{tr('Xem hướng dẫn →', 'Open guide →')}</span>
           </a>); })}
       </div>
@@ -91,7 +91,7 @@ function BrokerGuide({ b, steps, sections }) {
     <main className="wrap">
       <a href="#/guide" className="btn sm" style={{ justifySelf: 'start' }}>← {tr('Tất cả sàn', 'All brokers')}</a>
       <section className="card">
-        <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}><Logo b={b} size={64} />
+        <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}><Logo b={b} size={80} />
           <div style={{ display: 'grid', gap: 6, minWidth: 0 }}><h1 className="h-lg" style={{ margin: 0 }}>{b.name}</h1>
             {pick(b.intro, b.intro_en) && <p className="muted" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pick(b.intro, b.intro_en)}</p>}</div></div>
         {(b.ref_link || b.ref_code) && <div className="row">
