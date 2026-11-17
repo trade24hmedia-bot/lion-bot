@@ -102,7 +102,7 @@ export function Balance({ say }) {
   useEffect(() => { load(); }, [load]);
   if (err) return <div className="card neg">{err}</div>;
   const byId = Object.fromEntries((rows || []).map(r => [r.id, r]));
-  const list = (rows || []).filter(r => hit(r, q) && (only !== 'off' || (r.p?.diff != null && Math.abs(r.p.diff) >= 1)) && (only !== 'stale' || (r.stale_days || 0) >= 3) && (only !== 'nodata' || !r.p?.days));
+  const list = (rows || []).filter(r => hit(r, q) && (only !== 'running' || (r.seen && (r.stale_days || 0) < 3)) && (only !== 'off' || (r.p?.diff != null && Math.abs(r.p.diff) >= 1)) && (only !== 'stale' || (r.stale_days || 0) >= 3) && (only !== 'nodata' || !r.p?.days));
   const sum = k => list.reduce((s, r) => s + (toUsd(r.p?.[k], r.currency) || 0), 0);
   const flo = list.reduce((s, r) => s + (toUsd(r.st?.floating, r.currency) || 0), 0);
   const nOff = (rows || []).filter(r => r.p?.diff != null && Math.abs(r.p.diff) >= 1).length;
@@ -128,7 +128,7 @@ export function Balance({ say }) {
           <Kpi label="Lệch đối chiếu" value={nOff} tone={nOff ? 'neg' : 'pos'} sub={nOff ? 'tài khoản cần kiểm tra' : 'Tất cả khớp'} />
         </div>}
         <div className="row"><Search q={q} setQ={setQ} />
-          <div className="seg">{[['', 'Tất cả'], ['off', 'Lệch'], ['stale', 'Bot ngừng gửi'], ['nodata', 'Không có dữ liệu']].map(([k, l]) => <button key={k} type="button" className={only === k ? 'on' : ''} onClick={() => setOnly(k)}>{l}</button>)}</div></div>
+          <div className="seg">{[['', 'Tất cả'], ['running', `Bot đang chạy (${(rows || []).filter(r => r.seen && (r.stale_days || 0) < 3).length})`], ['off', 'Lệch'], ['stale', 'Bot ngừng gửi'], ['nodata', 'Không có dữ liệu']].map(([k, l]) => <button key={k} type="button" className={only === k ? 'on' : ''} onClick={() => setOnly(k)}>{l}</button>)}</div></div>
         {!rows ? <div className="empty">Đang tải…</div> : <div className="tbl" style={{ maxHeight: 'calc(100vh - 150px)', overflowY: 'auto' }}><table style={{ minWidth: 1280 }}><thead style={{ position: 'sticky', top: 0, background: 'var(--surface-100)', zIndex: 1 }}><tr>
           <th style={{ minWidth: 200 }}>Khách / TK</th><th className="r">Đầu kỳ</th><th className="r">Nạp</th><th className="r">Rút</th><th className="r">Điều chỉnh</th><th className="r">Lãi/lỗ ròng</th><th className="r">PNL chưa chốt</th><th className="r">Cuối kỳ (tính)</th><th className="r">EA báo</th><th>Đối chiếu</th><th>Bot gửi dữ liệu</th></tr></thead><tbody>
           {list.map(r => { const p = r.p || {}; const c = r.currency; return (

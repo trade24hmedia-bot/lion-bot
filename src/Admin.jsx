@@ -186,16 +186,20 @@ function AccountsAdmin({ editor, say }) {
     if (!e.account_no?.trim()) return say('Nhập số tài khoản');
     if (e.vpsSel === '__new' && !e.nv_name?.trim()) return say('Nhập tên / IP VPS mới');
     setSaving(true);
+    let newCust = null, newVps = null;   // tạo mới trong lần lưu này → lưu lỗi thì xóa lại, không để sót khách / VPS rỗng
     try {
       let customer_id = e.cust;
-      if (e.cust === '__new') {
+      // "+ Khách mới" trùng tên với khách đã có trong cùng nhánh → dùng luôn khách đó, không tạo bản trùng
+      const same = e.cust === '__new' && (custs || []).find(c => c.name.trim().toLowerCase() === e.nc_name.trim().toLowerCase() && (c.system_id || '') === (e.nc_sys || ''));
+      if (same) customer_id = same.id;
+      else if (e.cust === '__new') {
         const r = await sb.from('customers').insert({ name: e.nc_name.trim(), phone: e.nc_phone || null, email: e.nc_email?.trim().toLowerCase() || null, system_id: e.nc_sys || null }).select('id').single();
-        if (r.error) throw new Error(r.error.message.includes('duplicate') ? 'Email khách này đã có người dùng' : r.error.message); customer_id = r.data.id;
+        if (r.error) throw new Error(r.error.message.includes('duplicate') ? 'Email khách này đã có người dùng' : r.error.message); customer_id = newCust = r.data.id;
       }
       let vps_id = e.vpsSel || null;
       if (e.vpsSel === '__new') {
         const r = await sb.from('vps').insert({ name: e.nv_name.trim(), provider: e.nv_provider || null, spec: e.nv_spec || null, start_date: e.nv_start || null, end_date: e.nv_end || null, fee_usd: n(e.nv_fee) }).select('id').single();
-        if (r.error) throw new Error(r.error.message); vps_id = r.data.id;
+        if (r.error) throw new Error(r.error.message); vps_id = newVps = r.data.id;
         if (e.nv_user || e.nv_pass) await sb.from('vps_secrets').upsert({ vps_id, login_user: e.nv_user || null, password: e.nv_pass || null });
       }
       const body = { customer_id, account_no: e.account_no.trim(), broker: e.broker?.trim() || null, server: e.server?.trim() || null, platform: e.platform || 'MT5',
@@ -211,7 +215,11 @@ function AccountsAdmin({ editor, say }) {
       }
       if (e.investor_pass || e.id) await sb.from('account_secrets').upsert({ account_id: id, investor_pass: e.investor_pass || null, updated_at: new Date().toISOString() });
       setEdit(null); load(); loadCusts(); loadVps(); say(e.id ? 'Đã lưu tài khoản' : 'Đã thêm tài khoản');
-    } catch (x) { say(String(x.message || x).includes('duplicate') ? 'Số tài khoản + server này đã có' : (x.message || String(x))); }
+    } catch (x) {
+      if (newCust) await sb.from('customers').delete().eq('id', newCust);
+      if (newVps) await sb.from('vps').delete().eq('id', newVps);
+      say(String(x.message || x).includes('duplicate') ? 'Số tài khoản + server này đã có' : (x.message || String(x)));
+    }
     finally { setSaving(false); }
   };
   const copy = async v => { try { await navigator.clipboard.writeText(v); say('Đã chép mã'); } catch { say('Không chép được, hãy bôi đen để chép'); } };
@@ -265,7 +273,7 @@ function AccountsAdmin({ editor, say }) {
           <Sec>1. Khách hàng</Sec>
           <F label="Khách" wide><select id="acc-cus" value={e.cust || ''} onChange={ev => set('cust', ev.target.value)}>
             <option value="">— Chọn khách —</option><option value="__new">+ Khách mới</option>
-            {(custs || []).map(c => <option key={c.id} value={c.id}>{c.name}{sname(c.system_id) ? ' · ' + sname(c.system_id) : ''}{c.email ? ' · ' + c.email : ''}</option>)}</select></F>
+            {(custs || []).map(c => { const accs = (rows || []).filter(a => a.customer_id === c.id).map(a => a.account_no); return <option key={c.id} value={c.id}>{c.name}{sname(c.system_id) ? ' · ' + sname(c.system_id) : ''}{accs.length ? ' · TK ' + accs.join(', ') : ' · (chưa có TK)'}{c.email ? ' · ' + c.email : ''}</option>; })}</select></F>
           {e.cust === '__new' && <>
             <F label="Họ tên khách"><input id="nc-name" value={e.nc_name || ''} onChange={ev => set('nc_name', ev.target.value)} /></F>
             <F label="Số điện thoại / Zalo"><input id="nc-phone" value={e.nc_phone || ''} onChange={ev => set('nc_phone', ev.target.value)} /></F>
