@@ -65,6 +65,15 @@ export default function Guide({ slug }) {
         <h1 className="h-display" style={{ margin: 0 }}>{tr('Mở tài khoản & copy bot', 'Open an account & copy the bot')}</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 680 }}>{tr('Chọn sàn bạn dùng để xem hướng dẫn từng bước bằng hình ảnh và video: đăng ký, xác minh, nạp tiền và cài đặt copy bot Lion Bot.', 'Pick your broker to see step-by-step guides with screenshots and video: sign up, verify, deposit and set up Lion Bot copying.')}</p>
       </section>
+      <section className="card" style={{ border: '1px solid var(--brand)' }}>
+        <div className="row" style={{ alignItems: 'center' }}>
+          <span style={{ fontSize: 34, flex: 'none' }}>📘</span>
+          <div className="grow" style={{ minWidth: 0 }}><div className="title">{tr('Tài liệu cài đặt bot · LION PREMIUM BOT GOLD V2.1', 'Bot settings guide · LION PREMIUM BOT GOLD V2.1')}</div>
+            <div className="small muted">{tr('Hướng dẫn cài đặt thông số cho mọi mức vốn, tài khoản CENT (USC). File PDF, bấm để tải về máy.', 'Settings for every capital level, CENT (USC) accounts. PDF file, tap to download.')}</div></div>
+          <a className="btn pri" href="/downloads/LION_HuongDan_GOLD_V2.1.pdf" download>⬇ Tiếng Việt</a>
+          <a className="btn" href="/downloads/LION_Guide_GOLD_V2.1.pdf" download>⬇ English</a>
+        </div>
+      </section>
       <div className="guide-grid">
         {brokers.map(x => { const n = steps.filter(s => s.broker_id === x.id).length; return (
           <a key={x.id} href={'#/guide/' + x.slug} className="card" style={{ color: 'var(--ink)', textDecoration: 'none', border: '1px solid var(--line)', alignContent: 'start' }}>
