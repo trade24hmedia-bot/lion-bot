@@ -1,3 +1,4 @@
+import { Sun, Moon, Menu, X, KeyRound } from 'lucide-react';
 import Guide from './Guide.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import { sb, rpc, t, getLang, setLang, VERSION, authReady, authError } from './lib.js';
@@ -102,11 +103,12 @@ function PwNudge({ session }) {
   const [hide, setHide] = useState(() => { try { return sessionStorage.getItem('lb.pwNudge') === '1'; } catch { return false; } });
   if (!session || hide || session.user?.user_metadata?.has_password) return null;
   return (
-    <div style={{ background: 'var(--brand-soft)', borderBottom: '1px solid var(--line)' }}>
-      <div className="wrap row" style={{ gap: 10, paddingBlock: 8 }}>
-        <span className="grow small">🔑 {t('pwNudge')}</span>
+    <div className="bar">
+      <div className="wrap">
+        <KeyRound size={16} strokeWidth={1.5} className="muted" />
+        <span className="txt">{t('pwNudge')}</span>
         <a className="btn sm pri" href="#/set-password">{t('setPwTitle')}</a>
-        <button className="btn sm" onClick={() => { setHide(true); try { sessionStorage.setItem('lb.pwNudge', '1'); } catch {} }}>{t('later')}</button>
+        <button className="btn sm ghost" onClick={() => { setHide(true); try { sessionStorage.setItem('lb.pwNudge', '1'); } catch {} }}>{t('later')}</button>
       </div>
     </div>
   );
@@ -118,6 +120,7 @@ export default function App() {
   const [me, setMe] = useState(null);
   const [ready, setReady] = useState(false);
   const [, force] = useState(0);
+  const [menu, setMenu] = useState(false);
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem('lb.theme') || 'dark'; } catch { return 'dark'; } });
 
   useEffect(() => { document.documentElement.dataset.theme = theme; document.documentElement.lang = getLang(); try { localStorage.setItem('lb.theme', theme); } catch {} }, [theme]);
@@ -147,25 +150,28 @@ export default function App() {
   else if (route[0] === 'app' && route[1] === 'tree') page = <Tree me={me} />;
   else if (route[0] === 'app') page = <Overview me={me} />;
   else if (route[0] === 'admin') page = staff ? <Admin me={me} sub={route[1] || (me?.role === 'admin' ? 'overview' : me?.role === 'tech' ? 'botmon' : 'accounts')} arg={route[2]} /> : <div className="wrap empty"><b>403</b></div>;
-  else page = <Public />;
+  else page = <Public session={session} />;
 
   const tab = (href, label) => <a href={'#' + href} className={hash === href || (href !== '/app' && hash.startsWith(href)) ? 'on' : ''}>{label}</a>;
   return (
     <>
-      <header className="top"><div className="wrap">
-        <a className="logo" href="#/" title="Trang chủ"><img src="/logo-128.png" alt="Lion Bot" width="40" height="40" /><b>LION BOT</b></a>
-        <nav className="tabs">
+      <header className={'top' + (menu ? ' open' : '')}><div className="wrap">
+        <a className="logo" href="#/" title="Trang chủ" onClick={() => setMenu(false)}><img src="/logo-128.png" alt="" width="28" height="28" /><b>Lion Bot</b></a>
+        <nav className="tabs" onClick={() => setMenu(false)}>
           {session && <>{tab('/app', t('overview'))}{tab('/app/accounts', t('accounts'))}</>}
           {tab('/news', t('news'))}
           {tab('/guide', t('guide'))}
           {(me?.is_leader || staff) && tab('/app/tree', t('tree'))}
           {staff && tab('/admin', t('admin'))}
+          {session && <a className="mobile-only" href="#/set-password">{t('changePwTitle')}</a>}
+          {session && <a className="mobile-only" href="#/" onClick={e => { e.preventDefault(); sb.auth.signOut().then(() => { location.hash = '/'; }); }}>{t('logout')}</a>}
         </nav>
-        <button className="btn sm" onClick={() => { setLang(getLang() === 'vi' ? 'en' : 'vi'); document.documentElement.lang = getLang(); force(x => x + 1); }} aria-label="Language">{getLang() === 'vi' ? 'EN' : 'VI'}</button>
-        <button className="btn sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('theme')}>{theme === 'dark' ? '☀' : '☾'}</button>
-        {session && me && <a href="#/set-password" className="pill brand" style={{ fontSize: 11, textDecoration: 'none' }} title={me.email + ' · ' + t('changePwTitle')}>{t('role_' + (me.role === 'customer' && me.is_leader ? 'leader' : me.role))} 🔑</a>}
-        {session ? <button className="btn sm" onClick={() => sb.auth.signOut().then(() => { location.hash = '/'; })}>{t('logout')}</button>
+        <button className="btn sm ghost num" style={{ fontSize: 12 }} onClick={() => { setLang(getLang() === 'vi' ? 'en' : 'vi'); document.documentElement.lang = getLang(); force(x => x + 1); }} aria-label="Language">{getLang() === 'vi' ? 'EN' : 'VI'}</button>
+        <button className="btn sm ghost icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('theme')} title={t('theme')}>{theme === 'dark' ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}</button>
+        {session && me && <a href="#/set-password" className="who" title={me.email + ' · ' + t('changePwTitle')}>{t('role_' + (me.role === 'customer' && me.is_leader ? 'leader' : me.role))}</a>}
+        {session ? <button className="btn sm ghost hide-sm" onClick={() => sb.auth.signOut().then(() => { location.hash = '/'; })}>{t('logout')}</button>
           : <a className="btn sm pri" href="#/login">{t('login')}</a>}
+        <button className="btn sm ghost menu-btn" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label="Menu">{menu ? <X size={16} strokeWidth={1.5} /> : <Menu size={16} strokeWidth={1.5} />}</button>
       </div></header>
       {route[0] !== 'set-password' && <PwNudge session={session} />}
       {route[0] !== 'news' && <AlertBanner st={mst} />}

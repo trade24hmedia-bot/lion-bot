@@ -1,3 +1,4 @@
+import { Stamp } from './ui.jsx';
 import { useEffect, useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
 import { rpc, fmt, usd, signedUsd, cls, vnDate, t, tr, locale } from './lib.js';
@@ -54,7 +55,7 @@ export default function Branch({ token }) {
     <main className="wrap">
       <section className="hero" style={{ gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center' }}>
         <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-          <span className="small muted" style={{ letterSpacing: '.08em' }}>{tr('HỆ THỐNG LION BOT · NHÁNH', 'LION BOT NETWORK · BRANCH')}</span>
+          <Stamp>{tr('Hệ thống Lion Bot · nhánh', 'Lion Bot network · branch')}</Stamp>
           <h1 className="h-display" style={{ margin: 0 }}>{b.name}</h1>
           <p className="muted" style={{ margin: 0, maxWidth: 640 }}>{b.intro || tr(<>Kết quả thật của <b>tài khoản master</b>{b.leader ? <> do <b>{b.leader}</b> quản lý</> : ''}, cập nhật tự động mỗi ngày từ MT5. Khách hàng có thể xem để copy theo.</>, <>Real results of the <b>master account</b>{b.leader ? <> managed by <b>{b.leader}</b></> : ''}, updated automatically every day from MT5. Customers can follow it to copy.</>)}</p>
           {contact && <div className="row">{contact}</div>}
@@ -66,14 +67,14 @@ export default function Branch({ token }) {
         <section className="card">
           <div className="row" style={{ gap: 12 }}>
             <div className="grow" style={{ display: 'grid', gap: 4 }}>
-              <span className="small muted">{tr('TÀI KHOẢN MASTER', 'MASTER ACCOUNT')}</span>
+              <span className="label">{tr('Tài khoản master', 'Master account')}</span>
               <span className="row" style={{ gap: 8 }}><b className="num" style={{ fontSize: 20 }}>{a.mask}</b>
-                {a.running ? <span className="pill ok">● {tr('Bot đang chạy', 'Bot running')}</span> : a.status === 'stopped' ? <span className="pill mut">{tr('Đã dừng', 'Stopped')}</span> : <span className="pill mut">{tr('Chưa có dữ liệu mới', 'No recent data')}</span>}</span>
+                {a.running ? <span className="pill ok"><span className="dot" style={{ background: 'var(--profit)', marginRight: 6 }} />{tr('Bot đang chạy', 'Bot running')}</span> : a.status === 'stopped' ? <span className="pill mut">{tr('Đã dừng', 'Stopped')}</span> : <span className="pill mut">{tr('Chưa có dữ liệu mới', 'No recent data')}</span>}</span>
               <span className="small muted">{[a.broker, a.platform, a.currency === 'USC' ? tr('tài khoản cent (USC)', 'cent account (USC)') : 'USD', a.bot, a.start && tr('chạy từ ', 'running since ') + vnDate(a.start)].filter(Boolean).join(' · ')}</span>
             </div>
             {a.positions != null && <div style={{ display: 'grid', gap: 2, textAlign: 'right' }}>
-              <span className="small muted">{tr('ĐANG MỞ', 'OPEN P/L')}</span>
-              <span className={'num ' + cls(a.floating_usd)} style={{ fontSize: 18, fontWeight: 700 }}>{signedUsd(a.floating_usd)}</span>
+              <span className="label">{tr('Lệnh đang mở', 'Open P/L')}</span>
+              <span className={'num ' + cls(a.floating_usd)} style={{ fontSize: 18, fontWeight: 500 }}>{signedUsd(a.floating_usd)}</span>
               <span className="small muted">{a.positions} {tr('lệnh', 'positions')}{a.last_seen ? ' · ' + new Date(a.last_seen).toLocaleString(locale(), { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : ''}</span>
             </div>}
           </div>

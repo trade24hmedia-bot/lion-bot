@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const VERSION = '1.14.0';
+export const VERSION = '1.15.0';
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
 });
@@ -30,8 +30,8 @@ export const authReady = (() => {
 const DICT = {
   vi: {
     login: 'Đăng nhập', logout: 'Thoát', overview: 'Tổng quan', accounts: 'Tài khoản', tree: 'Hệ thống', admin: 'Quản trị',
-    heroTitle: 'Bot vàng chạy minh bạch, số liệu cập nhật mỗi ngày',
-    heroSub: 'Số tổng của toàn bộ tài khoản đang chạy Lion Bot. Đăng nhập để xem chi tiết tài khoản của bạn.',
+    heroTitle: 'Kết quả thật của bot vàng Lion Bot, chốt từ MT5 mỗi ngày',
+    heroSub: 'Số tổng của toàn bộ tài khoản đang chạy Lion Bot. Đăng nhập để xem vốn, lãi/lỗ và lịch sử từng tài khoản của bạn.',
     capital: 'Tổng vốn đang chạy', profitTotal: 'Tổng lợi nhuận', accountsCount: 'Số tài khoản', growthMonth: 'Tăng trưởng tháng này',
     cumProfit: 'Lợi nhuận lũy kế (USD)', monthly: 'Tăng trưởng theo tháng', month: 'Tháng', profit: 'Lãi/lỗ', pct: '%',
     disclaimer: 'Kết quả quá khứ không đảm bảo kết quả tương lai. Giao dịch vàng có rủi ro mất vốn.',
@@ -57,8 +57,8 @@ const DICT = {
   },
   en: {
     login: 'Sign in', logout: 'Sign out', overview: 'Overview', accounts: 'Accounts', tree: 'Network', admin: 'Admin',
-    heroTitle: 'A gold trading bot with transparent, daily results',
-    heroSub: 'Totals across every account running Lion Bot. Sign in to see your own accounts in detail.',
+    heroTitle: 'Real results of the Lion Bot gold bot, taken from MT5 every day',
+    heroSub: 'Totals across every account running Lion Bot. Sign in to see the capital, profit and history of each of your accounts.',
     capital: 'Capital running', profitTotal: 'Total profit', accountsCount: 'Accounts', growthMonth: 'Growth this month',
     cumProfit: 'Cumulative profit (USD)', monthly: 'Monthly growth', month: 'Month', profit: 'P/L', pct: '%',
     disclaimer: 'Past results do not guarantee future results. Gold trading carries a risk of loss.',

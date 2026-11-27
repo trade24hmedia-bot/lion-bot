@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { rpc, t, usd, signedUsd, signed, fmt, cls, vnDate, monthLabel, minsAgo } from './lib.js';
 import { tr } from './lib.js';
 import { LineArea } from './Charts.jsx';
-import { usePeriod } from './ui.jsx';
+import { usePeriod, Stamp } from './ui.jsx';
+import { Link2 } from 'lucide-react';
 
 function useRpc(name, args, deps) {
   const [data, setData] = useState(null); const [err, setErr] = useState('');
@@ -14,16 +15,16 @@ const pctTxt = v => (v == null ? '—' : (v > 0 ? '+' : '') + fmt(v) + '%');
 
 function AccTable({ rows, showCustomer }) {
   return (
-    <div className="tbl"><table>
+    <div className="tbl"><table className="cards">
       <thead><tr><th>{t('accounts')}</th>{showCustomer && <th>{t('customer')}</th>}<th className="r">{t('capitalCol')}</th><th className="r">{t('profitMonth')}</th><th className="r">%</th><th className="r">{t('profitAll')}</th></tr></thead>
       <tbody>{rows.map(a => (
         <tr key={a.id} className="click" onClick={() => { location.hash = '/app/a/' + a.id; }}>
-          <td><span className="num">{a.account_mask}</span><div className="small muted">{a.broker || ''} · {a.currency}{a.status === 'stopped' ? ' · ⏸' : ''}</div></td>
-          {showCustomer && <td>{a.customer_name}<div className="small muted">{a.system_name || ''}</div></td>}
-          <td className="r num">{usd(a.capital_usd)}<div className="small muted">{fmt(a.capital)} {a.currency}</div></td>
-          <td className={'r num ' + cls(a.profit_month_usd)}>{signedUsd(a.profit_month_usd)}</td>
-          <td className={'r num ' + cls(a.growth_month_pct)}>{pctTxt(a.growth_month_pct)}</td>
-          <td className={'r num ' + cls(a.profit_total_usd)}>{signedUsd(a.profit_total_usd)}</td>
+          <td><span className="num">{a.account_mask}</span><div className="small muted">{a.broker || ''} · {a.currency}{a.status === 'stopped' ? ' · ' + tr('Đã dừng', 'Stopped') : ''}</div></td>
+          {showCustomer && <td className="c2">{a.customer_name}<div className="small muted">{a.system_name || ''}</div></td>}
+          <td className="r num hide-sm">{usd(a.capital_usd)}<div className="small muted">{fmt(a.capital)} {a.currency}</div></td>
+          <td className={'r num c3 ' + cls(a.profit_month_usd)}>{signedUsd(a.profit_month_usd)}</td>
+          <td className={'r num c4 ' + cls(a.growth_month_pct)}>{pctTxt(a.growth_month_pct)}</td>
+          <td className={'r num hide-sm ' + cls(a.profit_total_usd)}>{signedUsd(a.profit_total_usd)}</td>
         </tr>))}
       </tbody></table></div>
   );
@@ -36,7 +37,8 @@ export function Overview({ me }) {
   const [daily] = useRpc('portal_daily', { p_from: range.from, p_to: range.to, p_scope: scope }, [range.from, range.to, scope]);
   const [q, setQ] = useState('');
   const scopeUi = <div className="seg">{[['all', t('scopeAll')], ['mine', t('scopeMine')]].map(([k, l]) => <button key={k} type="button" className={scope === k ? 'on' : ''} onClick={() => setScope(k)}>{l}</button>)}</div>;
-  const head = <div className="row"><h1 className="h-lg grow">{me?.customer?.name || t('overview')}</h1>{scopeUi}{picker}</div>;
+  const last = daily?.length ? daily[daily.length - 1].date : null;
+  const head = <div className="row" style={{ alignItems: 'flex-end' }}><div className="grow" style={{ display: 'grid', gap: 4, minWidth: 0 }}><span className="small muted">{me?.customer?.name || t('overview')}</span><h1 className="h-lg" style={{ margin: 0 }}>{range.label}</h1>{last && <Stamp>{tr('Số liệu đến ', 'Data up to ')}{vnDate(last)}</Stamp>}</div>{scopeUi}{picker}</div>;
   if (err) return <main className="wrap">{head}<div className="card neg">{err}</div></main>;
   if (!accs) return <main className="wrap">{head}<div className="empty">{t('loading')}</div></main>;
   if (!accs.length) return (
@@ -56,26 +58,25 @@ export function Overview({ me }) {
       {head}
       <section className="kpis">
         <div className="kpi"><span className="label">{t('capitalRun')}</span><span className="num-xl">{usd(cap)}</span><span className="sub">{run.length} {t('accounts').toLowerCase()}</span></div>
-        <div className="kpi"><span className="label">{t('profitPeriod')}</span><span className={'num-xl ' + cls(pn)}>{signedUsd(pn)}</span><span className="sub">{range.label}</span></div>
-        <div className="kpi"><span className="label">{t('growthPeriod')}</span><span className={'num-xl ' + cls(pn)}>{base > 0 ? pctTxt(Math.round(pn / base * 10000) / 100) : '—'}</span></div>
+        <div className="kpi"><span className="label">{t('profitPeriod')}</span><span className={'num-xl ' + cls(pn)}>{signedUsd(pn)}</span><span className="sub"><span className={cls(pn)}>{base > 0 ? pctTxt(Math.round(pn / base * 10000) / 100) : '—'}</span> {tr('so với vốn đầu kỳ', 'vs opening capital')}</span></div>
         <div className="kpi"><span className="label">{t('depositPeriod')}</span><span className="num-xl">{usd(dep)}</span><span className="sub">{t('profitAll')}: {signedUsd(sum('profit_total_usd'))}</span></div>
       </section>
       <section className="card"><div className="title">{t('cumPeriod')}</div>
-        {ser.length ? <LineArea data={ser} x="date" y="cum" prefix="$" /> : <div className="empty">{t('none')}</div>}
+        {ser.length ? <LineArea data={ser} x="date" y="cum" prefix="$" signed /> : <div className="empty">{t('none')}</div>}
       </section>
       <section className="card">
         <div className="row"><div className="title grow">{t('myAccounts')} ({run.length})</div>
           <label className="field" style={{ width: 'min(260px,100%)' }}><input id="ov-search" type="search" placeholder={t('search')} value={q} onChange={e => setQ(e.target.value)} /></label></div>
-        <div className="tbl"><table>
+        <div className="tbl"><table className="cards">
           <thead><tr><th>{t('accounts')}</th><th>{t('customer')} / {t('branch')}</th><th className="r">{t('capitalCol')}</th><th className="r">{t('profitPeriod')}</th><th className="r">%</th><th className="r">{t('profitAll')}</th></tr></thead>
           <tbody>{list.map(a => (
             <tr key={a.id} className={a.can_open ? 'click' : ''} onClick={() => { if (a.can_open) location.hash = '/app/a/' + a.id; }}>
-              <td><span className="num">{a.account_mask}</span>{a.is_mine && scope === 'all' && <span className="pill brand" style={{ marginLeft: 6, fontSize: 10 }}>★</span>}<div className="small muted">{a.broker || ''} · {a.currency}{a.status === 'stopped' ? ' · ⏸' : ''}</div></td>
-              <td>{a.customer_name || <span className="muted">{t('hidden')}</span>}<div className="small muted">{a.system_name || ''}</div></td>
-              <td className="r num">{usd(a.capital_usd)}{a.currency === 'USC' && <div className="small muted">{fmt(a.capital)} USC</div>}</td>
-              <td className={'r num ' + cls(a.profit_usd)}>{a.days ? signedUsd(a.profit_usd) : '—'}<div className="small muted">{a.days} {t('days')}</div></td>
-              <td className={'r num ' + cls(a.growth_pct)}>{a.days ? pctTxt(a.growth_pct) : '—'}</td>
-              <td className={'r num ' + cls(a.profit_total_usd)}>{signedUsd(a.profit_total_usd)}</td>
+              <td><span className="num">{a.account_mask}</span>{a.is_mine && scope === 'all' && <span className="ta">{tr('Của bạn', 'Yours')}</span>}<div className="small muted">{a.broker || ''} · {a.currency}{a.status === 'stopped' ? ' · ' + tr('Đã dừng', 'Stopped') : ''}</div></td>
+              <td className="c2">{a.customer_name || <span className="muted">{t('hidden')}</span>}<div className="small muted">{a.system_name || ''}</div></td>
+              <td className="r num hide-sm">{usd(a.capital_usd)}{a.currency === 'USC' && <div className="small muted">{fmt(a.capital)} USC</div>}</td>
+              <td className={'r num c3 ' + cls(a.profit_usd)}>{a.days ? signedUsd(a.profit_usd) : '—'}<div className="small muted">{a.days} {t('days')}</div></td>
+              <td className={'r num c4 ' + cls(a.growth_pct)}>{a.days ? pctTxt(a.growth_pct) : '—'}</td>
+              <td className={'r num hide-sm ' + cls(a.profit_total_usd)}>{signedUsd(a.profit_total_usd)}</td>
             </tr>))}
           </tbody></table></div>
       </section>
@@ -113,7 +114,7 @@ export function AccountDetail({ id }) {
   return (
     <main className="wrap">
       <a href="#/app/accounts" className="small">{t('back')}</a>
-      <div className="row"><h1 className="h-lg grow num">{a?.account_mask || '…'}</h1>{a && <span className="pill mut">{a.broker} · {a.currency}</span>}{a && !a.is_mine && <span className="pill brand">{a.customer_name}</span>}</div>
+      <div className="row"><h1 className="h-lg grow num">{a?.account_mask || '…'}</h1>{a && <span className="small muted">{a.broker} · {a.currency}{a.status === 'stopped' ? ' · ' + tr('Đã dừng', 'Stopped') : ''}</span>}{a && !a.is_mine && <span className="ta">{a.customer_name}</span>}</div>
       {a && <section className="kpis">
         <div className="kpi"><span className="label">{t('myCapital')}</span><span className="num-xl">{usd(a.capital_usd)}</span><span className="sub">{fmt(a.capital)} {a.currency}</span></div>
         <div className="kpi"><span className="label">{t('profitMonth')}</span><span className={'num-xl ' + cls(a.profit_month_usd)}>{signedUsd(a.profit_month_usd)}</span><span className="sub">{signed(a.profit_month)} {a.currency}</span></div>
@@ -182,7 +183,7 @@ function ShareLinks() {
   const copy = async tk => { try { await navigator.clipboard.writeText(url(tk)); setMsg(tr('Đã chép link', 'Link copied')); } catch { setMsg(url(tk)); } setTimeout(() => setMsg(''), 2500); };
   return (
     <section className="card">
-      <div className="row"><div className="title grow">🔗 {tr('Link chia sẻ nhánh', 'Branch share link')}</div>{msg && <span className="pill ok">{msg}</span>}</div>
+      <div className="row"><div className="title grow row" style={{ gap: 8 }}><Link2 size={16} strokeWidth={1.5} className="muted" />{tr('Link chia sẻ nhánh', 'Branch share link')}</div>{msg && <span className="pill ok">{msg}</span>}</div>
       <p className="small muted" style={{ margin: 0 }}>{tr('Gửi link này cho khách: không cần đăng nhập vẫn xem được hiệu quả tài khoản master của nhánh (số tài khoản được che).', 'Send this link to customers: they can see the branch master account performance without signing in (account number is masked).')}</p>
       <div className="tbl"><table><tbody>{on.map(r => (
         <tr key={r.system_id}><td><b>{r.name}</b><div className="small muted key" style={{ wordBreak: 'break-all' }}>{url(r.token)}</div></td>

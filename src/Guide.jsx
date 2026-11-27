@@ -1,3 +1,5 @@
+import { BookOpen, Download } from 'lucide-react';
+import { Stamp } from './ui.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import { sb, tr, getLang } from './lib.js';
 import { Modal, F } from './ui.jsx';
@@ -43,7 +45,7 @@ function Video({ url }) {
 function Logo({ b, size = 56 }) {
   return b.logo_url
     ? <img src={b.logo_url} alt={b.name} width={size} height={size} style={{ width: size, height: size, objectFit: 'contain', borderRadius: 12, background: '#fff', padding: 4, flex: 'none' }} />
-    : <span style={{ width: size, height: size, borderRadius: 12, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: size * 0.42, flex: 'none' }}>{b.name.slice(0, 1)}</span>;
+    : <span style={{ width: size, height: size, borderRadius: 12, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: size * 0.42, flex: 'none' }}>{b.name.slice(0, 1)}</span>;
 }
 
 // ------------------------------------------------------------ trang khách
@@ -61,17 +63,17 @@ export default function Guide({ slug }) {
   return (
     <main className="wrap">
       <section className="hero">
-        <span className="small muted" style={{ letterSpacing: '.08em' }}>{tr('HƯỚNG DẪN', 'GUIDES')}</span>
+        <Stamp>{tr('Hướng dẫn', 'Guides')}</Stamp>
         <h1 className="h-display" style={{ margin: 0 }}>{tr('Mở tài khoản & copy bot', 'Open an account & copy the bot')}</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 680 }}>{tr('Chọn sàn bạn dùng để xem hướng dẫn từng bước bằng hình ảnh và video: đăng ký, xác minh, nạp tiền và cài đặt copy bot Lion Bot.', 'Pick your broker to see step-by-step guides with screenshots and video: sign up, verify, deposit and set up Lion Bot copying.')}</p>
       </section>
-      <section className="card" style={{ border: '1px solid var(--brand)' }}>
+      <section className="card">
         <div className="row" style={{ alignItems: 'center' }}>
-          <span style={{ fontSize: 34, flex: 'none' }}>📘</span>
+          <span style={{ flex: 'none', width: 40, height: 40, borderRadius: 8, background: 'var(--surface-200)', display: 'grid', placeItems: 'center', color: 'var(--brand)' }}><BookOpen size={20} strokeWidth={1.5} /></span>
           <div className="grow" style={{ minWidth: 0 }}><div className="title">{tr('Tài liệu cài đặt bot · LION PREMIUM BOT GOLD V2.1', 'Bot settings guide · LION PREMIUM BOT GOLD V2.1')}</div>
             <div className="small muted">{tr('Hướng dẫn cài đặt thông số cho mọi mức vốn, tài khoản CENT (USC). File PDF, bấm để tải về máy.', 'Settings for every capital level, CENT (USC) accounts. PDF file, tap to download.')}</div></div>
-          <a className="btn pri" href="/downloads/LION_HuongDan_GOLD_V2.1.pdf" download>⬇ Tiếng Việt</a>
-          <a className="btn" href="/downloads/LION_Guide_GOLD_V2.1.pdf" download>⬇ English</a>
+          <a className="btn pri" href="/downloads/LION_HuongDan_GOLD_V2.1.pdf" download><Download size={16} strokeWidth={1.5} />Tiếng Việt</a>
+          <a className="btn" href="/downloads/LION_Guide_GOLD_V2.1.pdf" download><Download size={16} strokeWidth={1.5} />English</a>
         </div>
       </section>
       <div className="guide-grid">
@@ -116,7 +118,7 @@ function BrokerGuide({ b, steps, sections }) {
           {list.map((s, i) => (
             <section key={s.id} className="card">
               <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
-                <span className="num" style={{ flex: 'none', width: 36, height: 36, borderRadius: 99, background: 'var(--brand)', color: 'var(--on-brand)', display: 'grid', placeItems: 'center', fontWeight: 700 }}>{offset + i + 1}</span>
+                <span className="num" style={{ flex: 'none', width: 36, height: 36, borderRadius: 99, background: 'var(--brand)', color: 'var(--on-brand)', display: 'grid', placeItems: 'center', fontWeight: 600 }}>{offset + i + 1}</span>
                 <div style={{ display: 'grid', gap: 6, minWidth: 0 }}><div className="title">{pick(s.title, s.title_en)}</div>
                   {pick(s.body, s.body_en) && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{linkify(pick(s.body, s.body_en))}</div>}</div>
               </div>

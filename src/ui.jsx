@@ -7,13 +7,18 @@ export function Modal({ title, children, onClose, onSave, saving, extra }) {
   return (
     <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <form className="modal" onSubmit={e => { e.preventDefault(); onSave(); }}>
-        <div className="row"><div className="title grow">{title}</div><button type="button" className="btn sm" onClick={onClose}>Đóng</button></div>
+        <div className="row"><div className="title grow">{title}</div><button type="button" className="btn sm ghost" onClick={onClose}>Đóng</button></div>
         {children}
         <div className="row">{extra}<span className="grow" /><button type="button" className="btn" onClick={onClose}>Hủy</button><button className="btn pri" disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu'}</button></div>
       </form>
     </div>
   );
 }
+
+// Dấu "chốt số liệu": vạch vàng nhỏ + thời điểm (giờ Việt Nam)
+export const Stamp = ({ children }) => <span className="stamp">{children}</span>;
+export const stampTime = ts => { const d = new Date(ts); if (isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); const v = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  return `${p(v.getDate())}/${p(v.getMonth() + 1)}/${v.getFullYear()} · ${p(v.getHours())}:${p(v.getMinutes())} (GMT+7)`; };
 
 export const F = ({ label, wide, children }) => <label className={'field' + (wide ? ' wide' : '')}>{label}{children}</label>;
 
