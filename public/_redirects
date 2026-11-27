@@ -1,4 +1,1 @@
-# Missing files under /downloads/ -> 404 (never the web page)
-/downloads/*  /dl-404.html  404
-# Everything else: single-page web app
-/*  /index.html  200
+# No rules: the web app uses #/ links. Unknown paths (incl. /downloads/...) get 404.html with status 404.
