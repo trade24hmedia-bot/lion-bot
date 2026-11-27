@@ -1,0 +1,10 @@
+# File hướng dẫn bot: tải thẳng về máy (link ghi cứng trong bot, không đổi tên / thư mục)
+/downloads/LION_HuongDan_GOLD_V2.1.pdf
+  Content-Type: application/pdf
+  Content-Disposition: attachment; filename="LION_HuongDan_GOLD_V2.1.pdf"
+  Cache-Control: public, max-age=300
+
+/downloads/LION_Guide_GOLD_V2.1.pdf
+  Content-Type: application/pdf
+  Content-Disposition: attachment; filename="LION_Guide_GOLD_V2.1.pdf"
+  Cache-Control: public, max-age=300
