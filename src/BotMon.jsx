@@ -7,14 +7,16 @@ import { Modal, F } from './ui.jsx';
 const vn = (ts, sec) => (ts ? new Date(ts).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', ...(sec ? { second: '2-digit' } : {}), day: '2-digit', month: '2-digit' }) : '—');
 const mins = ts => (ts ? Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 60000)) : null);
 const ago = m => (m == null ? '—' : m < 1 ? 'vừa xong' : m < 60 ? m + ' phút trước' : m < 1440 ? Math.floor(m / 60) + ' giờ ' + (m % 60) + ' phút trước' : Math.floor(m / 1440) + ' ngày trước');
-const LV = { red: '🔴', orange: '🟠', info: '⚪' };
+const LVC = { red: 'var(--loss)', orange: 'var(--warn)', info: 'var(--ink-muted)' };
+const LVT = { red: 'Đỏ', orange: 'Cam', info: 'Thông tin' };
+const LV = Object.fromEntries(Object.keys(LVC).map(k => [k, <span className="dot" title={LVT[k]} style={{ background: LVC[k], marginRight: 6, verticalAlign: 'middle' }} />]));
 const KIND = { event: 'Sự kiện bot', lost: 'Mất tín hiệu', two_terminals: 'Chạy 2 máy', pending: 'Chờ duyệt', cfg: 'Lệch cài đặt chuẩn' };
 const STATE = { running: 'Đang chạy', stopped: 'Đã dừng', paused: 'Tạm dừng', news: 'Dừng theo tin' };
 
 function signal(a) {
   const m = mins(a.last_seen || a.received_at);
   if (!a.last_seen && !a.received_at) return { k: 'none', pill: <span className="pill mut">Chưa kết nối</span>, m };
-  if (m < 5) return { k: 'ok', pill: <span className="pill ok">● Trực tuyến</span>, m };
+  if (m < 5) return { k: 'ok', pill: <span className="pill ok">Trực tuyến</span>, m };
   if (m < 15) return { k: 'slow', pill: <span className="pill warn">Chậm {m} phút</span>, m };
   return { k: 'lost', pill: <span className="pill bad">Mất tín hiệu</span>, m };
 }
@@ -60,7 +62,7 @@ function List({ say, isAdmin }) {
     <>
       <section className="card">
         <div className="row"><div className="title grow">Giám sát bot</div>
-          <a className="btn sm" href="#/admin/botmon/presets">⚙️ Cài đặt chuẩn & phiên bản</a>
+          <a className="btn sm" href="#/admin/botmon/presets">Cài đặt chuẩn & phiên bản</a>
           {d.market_closed && <span className="pill mut">Thị trường đang nghỉ · tạm không báo mất tín hiệu</span>}
           <span className="small muted">Tự cập nhật 30 giây</span></div>
         <div className="kpis">
@@ -69,14 +71,14 @@ function List({ say, isAdmin }) {
           <div className="kpi"><span className="label">Cảnh báo chưa xử lý</span><span className={'num-xl ' + (open.length ? 'neg' : '')}>{open.length}</span><span className="sub">{open.filter(x => x.level === 'red').length} đỏ · {open.filter(x => x.level !== 'red').length} cam</span></div>
           <div className="kpi"><span className="label">Chờ duyệt</span><span className={'num-xl ' + (cnt.pending ? 'warn' : '')} style={cnt.pending ? { color: 'var(--brand)' } : null}>{cnt.pending}</span><span className="sub"><a href="#/admin/accounts">Duyệt ở tab Tài khoản</a></span></div>
         </div>
-        {!d.has_internal && <div className="small muted">⚠️ Chưa có nhóm Telegram nội bộ nên cảnh báo chỉ hiện trên web. {isAdmin ? <a href="#/admin/telegram">Thêm nhóm nội bộ</a> : 'Nhờ Quản lý thêm nhóm nội bộ ở tab Telegram.'}</div>}
+        {!d.has_internal && <div className="small muted">Chưa có nhóm Telegram nội bộ nên cảnh báo chỉ hiện trên web. {isAdmin ? <a href="#/admin/telegram">Thêm nhóm nội bộ</a> : 'Nhờ Quản lý thêm nhóm nội bộ ở tab Telegram.'}</div>}
       </section>
 
       <section className="card">
         <div className="row"><div className="title grow">Cảnh báo {open.length ? `(${open.length})` : ''}</div>
           {open.length > 1 && <button className="btn sm" onClick={() => confirm('Đánh dấu đã xử lý tất cả ' + open.length + ' cảnh báo?') && handle(open.map(x => x.id))}>Đã xử lý tất cả</button>}
           <button className="btn sm" onClick={() => setShowDone(!showDone)}>{showDone ? 'Ẩn đã xử lý' : `Xem đã xử lý (${done.length})`}</button></div>
-        {open.length ? <AlertTable rows={open} onHandle={id => handle([id])} /> : <div className="empty">✅ Không có cảnh báo nào cần xử lý</div>}
+        {open.length ? <AlertTable rows={open} onHandle={id => handle([id])} /> : <div className="empty">Không có cảnh báo nào cần xử lý</div>}
         {showDone && (done.length ? <><div className="label">Đã xử lý 3 ngày gần đây</div><AlertTable rows={done} /></> : <div className="small muted">Chưa có.</div>)}
       </section>
 
@@ -182,7 +184,7 @@ function Detail({ id, say }) {
           <div className="kpi"><span className="label">DD hiện tại</span><span className={'num-xl ' + ddCls(s.dd_pct, s.maxdd_pct)}>{s.dd_pct == null ? '—' : fmt(s.dd_pct) + '%'}</span><span className="sub">Max DD cài đặt {s.maxdd_pct == null ? '—' : fmt(s.maxdd_pct, 0) + '%'}</span></div>
           <div className="kpi"><span className="label">Trạng thái bot</span><span className="num-xl" style={{ fontSize: 22 }}>{STATE[s.bot_state] || s.bot_state || '—'}</span><span className="sub">{s.basket_mode ? 'Rổ ' + s.basket_mode + ' · ' : ''}{s.basket_pnl != null ? 'lãi rổ ' + fmt(s.basket_pnl) : ''}{s.gong ? ' · đang gồng' : ''}</span></div>
         </div>
-        {activeTerms.length >= 2 && <div className="pill bad" style={{ justifySelf: 'start' }}>⚠️ {activeTerms.length} máy đang chạy bot cùng lúc trên tài khoản này</div>}
+        {activeTerms.length >= 2 && <div className="pill bad" style={{ justifySelf: 'start' }}>{activeTerms.length} máy đang chạy bot cùng lúc trên tài khoản này</div>}
       </section>
 
       {openAl.length > 0 && <section className="card">
@@ -201,7 +203,7 @@ function Detail({ id, say }) {
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
 
         {tab === 'events' && <>
-          <div className="seg" style={{ justifySelf: 'start' }}>{[['all', 'Tất cả'], ['red', '🔴 Đỏ'], ['orange', '🟠 Cam'], ['info', '⚪ Thông tin']].map(([k, l]) => <button key={k} className={evLv === k ? 'on' : ''} onClick={() => setEvLv(k)}>{l}</button>)}</div>
+          <div className="seg" style={{ justifySelf: 'start' }}>{[['all', 'Tất cả'], ['red', 'Đỏ'], ['orange', 'Cam'], ['info', 'Thông tin']].map(([k, l]) => <button key={k} className={evLv === k ? 'on' : ''} onClick={() => setEvLv(k)}>{l}</button>)}</div>
           {evs.length ? <div className="tbl" style={{ maxHeight: '60vh', overflowY: 'auto' }}><table><thead><tr><th>Nhận lúc (giờ VN)</th><th>Giờ sàn</th><th>Sự kiện</th><th>Nội dung</th><th className="r">DD</th><th className="r">Balance</th><th className="r">Equity</th><th className="r">Lãi/lỗ</th></tr></thead><tbody>
             {evs.map(e => <tr key={e.id}>
               <td className="small" style={{ whiteSpace: 'nowrap' }}>{vn(e.at, true)}</td><td className="small muted" style={{ whiteSpace: 'nowrap' }}>{e.time_server || ''}</td>
@@ -218,7 +220,7 @@ function Detail({ id, say }) {
               <span className="small muted">Cập nhật {vn(d.config.updated_at)} · ô vàng là thông số đã đổi gần đây · ô đỏ là lệch cài đặt chuẩn</span></div>
             <div className="tbl" style={{ maxHeight: '55vh', overflowY: 'auto' }}><table><thead><tr><th>Thông số</th><th>Giá trị</th><th>Chuẩn{d.check?.preset ? ' (' + d.check.preset + ')' : ''}</th><th>Đổi lần cuối</th></tr></thead><tbody>
               {keys.map(k => <tr key={k} style={diff[k] ? { background: 'var(--loss-soft)' } : changed[k] ? { background: 'var(--brand-soft)' } : null}><td className="num small">{k}</td><td className={'num small' + (diff[k] ? ' neg' : '')}>{String(settings[k])}</td>
-                <td className="num small">{k in std ? <>{String(std[k])} {diff[k] ? '⚠️' : '✓'}</> : ''}</td><td className="small muted">{changed[k] ? vn(changed[k]) : ''}</td></tr>)}
+                <td className="num small">{k in std ? <>{String(std[k])} {diff[k] ? <span className="neg">lệch</span> : <span className="pos">✓</span>}</> : ''}</td><td className="small muted">{changed[k] ? vn(changed[k]) : ''}</td></tr>)}
             </tbody></table></div>
             <div className="label">Lịch sử thay đổi</div>
             {d.config_hist.length ? <div className="tbl" style={{ maxHeight: 360, overflowY: 'auto' }}><table><tbody>{d.config_hist.map(h => <tr key={h.id}>
@@ -316,7 +318,7 @@ function Presets({ say }) {
           {mism.map(c => <tr key={c.account_id}><td><a href={'#/admin/botmon/' + c.account_id} className="num">{c.account_no}</a><div className="small muted">{c.customer || 'chưa gắn khách'}</div></td>
             <td className="num">{c.cap_usd == null ? '—' : '$' + fmt(c.cap_usd)}</td><td>{c.preset}</td>
             <td className="small">{Object.entries(c.diff).map(([k, [o, n]]) => <div key={k}><span className="num">{k}</span>: <span className="neg">{o == null ? '(không có)' : String(o)}</span> → <b>{String(n)}</b></div>)}</td></tr>)}
-        </tbody></table></div> : <div className="empty">✅ {d.presets.length ? 'Mọi tài khoản đều đúng cài đặt chuẩn' : 'Chưa có bộ chuẩn để so'}</div>}
+        </tbody></table></div> : <div className="empty">{d.presets.length ? 'Mọi tài khoản đều đúng cài đặt chuẩn' : 'Chưa có bộ chuẩn để so'}</div>}
       </section>
 
       <section className="card">

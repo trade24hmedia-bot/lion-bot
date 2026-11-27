@@ -272,7 +272,7 @@ export function Profit({ say }) {
 }
 
 // ------------------------------------------------------------ Telegram (chỉ quản lý)
-const LVN = { orange: '🟠 Cam + 🔴 Đỏ', red: '🔴 Chỉ Đỏ' };
+const LVN = { orange: 'Cam + Đỏ', red: 'Chỉ Đỏ' };
 export function Telegram({ say }) {
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   const [tok, setTok] = useState(''); const [edit, setEdit] = useState(null); const [saving, setSaving] = useState(false);
@@ -303,7 +303,7 @@ export function Telegram({ say }) {
     <>
       <section className="card">
         <div className="title">Báo Telegram cho khách dùng bot</div>
-        <p className="small muted" style={{ margin: 0 }}>Hệ thống tự gửi vào nhóm / kênh: 🔴🟠 tin tức Đỏ / Cam kèm lời khuyên xử lý bot · ⏰ nhắc 30 phút trước tin Đỏ / Cam trên lịch · ⚡ giá vàng chạy mạnh · ✅ hết cảnh báo · ☀️ bản tin 7:00 sáng. Mỗi tin chỉ gửi 1 lần.</p>
+        <p className="small muted" style={{ margin: 0 }}>Hệ thống tự gửi vào nhóm / kênh: tin tức Đỏ / Cam kèm lời khuyên xử lý bot · nhắc 30 phút trước tin Đỏ / Cam trên lịch · giá vàng chạy mạnh · hết cảnh báo · bản tin 7:00 sáng. Mỗi tin chỉ gửi 1 lần.</p>
       </section>
 
       <section className="card">
@@ -314,7 +314,7 @@ export function Telegram({ say }) {
 
       <section className="card">
         <div className="row"><div className="title grow">2. Nhóm / kênh nhận tin ({d.chats.length})</div>
-          <button className="btn" onClick={find} disabled={!d.has_token || finding}>{finding ? 'Đang tìm…' : '🔍 Tìm nhóm'}</button>
+          <button className="btn" onClick={find} disabled={!d.has_token || finding}>{finding ? 'Đang tìm…' : 'Tìm nhóm'}</button>
           <button className="btn pri" onClick={() => newChat()} disabled={!d.has_token}>+ Thêm thủ công</button></div>
         <p className="small muted" style={{ margin: 0 }}>Nhóm khách nhận tin thị trường; nhóm có đánh dấu <b>Nội bộ</b> chỉ nhận cảnh báo bot cho đội kỹ thuật. Thêm bot vào nhóm (kênh thì thêm bot làm <b>quản trị viên</b>), gửi 1 tin bất kỳ trong nhóm (ví dụ <span className="key">/start</span>), rồi bấm <b>Tìm nhóm</b>. Sau khi thêm, bấm <b>Gửi thử</b> để kiểm tra.</p>
         {found && <div className="card" style={{ background: 'var(--surface-200)' }}>
@@ -345,7 +345,7 @@ export function Telegram({ say }) {
         <div className="form">
           <F label="Tên gợi nhớ"><input id="tg-name" value={edit.name || ''} onChange={e => setEdit({ ...edit, name: e.target.value })} placeholder="Nhóm khách Lion Bot" /></F>
           <F label="Chat id (nhóm thường là số âm, ví dụ -100…)"><input id="tg-chat" value={edit.chat_id || ''} onChange={e => setEdit({ ...edit, chat_id: e.target.value })} /></F>
-          <F label="Gửi từ mức"><select id="tg-level" value={edit.min_level} onChange={e => setEdit({ ...edit, min_level: e.target.value })}><option value="orange">🟠 Cam + 🔴 Đỏ</option><option value="red">🔴 Chỉ Đỏ</option></select></F>
+          <F label="Gửi từ mức"><select id="tg-level" value={edit.min_level} onChange={e => setEdit({ ...edit, min_level: e.target.value })}><option value="orange">Cam + Đỏ</option><option value="red">Chỉ Đỏ</option></select></F>
           <F label="Trạng thái"><Ck k="enabled" l="Đang gửi" /></F>
           <div className="wide" style={{ gridColumn: '1/-1', display: 'grid', gap: 4 }}><Ck k="internal" l="Nhóm NỘI BỘ (chỉ nhận cảnh báo bot: mất tín hiệu, chạy 2 máy, Max DD, lỗi, TK mới chờ duyệt — không nhận tin thị trường)" /></div>
           {!edit.internal && <div className="wide" style={{ gridColumn: '1/-1', display: 'grid', gap: 8 }}><b className="small">Loại tin gửi vào nhóm này</b>
@@ -413,7 +413,7 @@ export function BotLink({ say }) {
           <tr><td className="small">Header: <span className="key">apikey</span> + <span className="key">Authorization: Bearer</span> = khóa anon (như gói EA hiện tại) · body: <span className="key">{'{"p": {...}}'}</span></td><td /></tr>
           <tr><td className="small">Giờ máy chủ web lúc tải trang: <span className="key">{d.now}</span> (giây unix UTC) · cho phép lệch ±900 giây · tối đa 20 lần / phút / tài khoản</td><td /></tr>
         </tbody></table></div>
-        <div className="small">{(d.selftest || []).map(x => <div key={x.msg}>{x.ok ? '✅' : '❌'} <span className="key">{x.msg}</span></div>)}</div>
+        <div className="small">{(d.selftest || []).map(x => <div key={x.msg} className="row" style={{ gap: 8, flexWrap: 'nowrap' }}><span className={x.ok ? 'pos' : 'neg'} style={{ width: 44, flex: 'none' }}>{x.ok ? 'Đạt' : 'Lỗi'}</span><span className="key">{x.msg}</span></div>)}</div>
       </section>
 
       <section className="card">

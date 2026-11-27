@@ -90,7 +90,9 @@ export function News() {
   if (!d) return <main className="wrap"><div className="empty">{t('loading')}</div></main>;
   const st = d.status || {}, L = LV[st.level] || LV.green;
   const news = (d.news || []).filter(n => (lvF === 'all' || (lvF === 'hot' ? n.level !== 'info' : n.level === lvF)) && (!lang || n.lang === lang));
-  const events = (d.events || []).filter(e => evF === 'all' || e.level !== 'yellow');
+  const evHot = (d.events || []).filter(e => e.level !== 'yellow');
+  const evFall = evF === 'hot' && !evHot.length && (d.events || []).length > 0;
+  const events = evF === 'all' || evFall ? (d.events || []) : evHot;
   const byDay = events.reduce((m, e) => { const k = vnTime(e.at, { weekday: 'long', day: '2-digit', month: '2-digit' }); (m[k] = m[k] || []).push(e); return m; }, {});
   const cnt = lv => (d.news || []).filter(n => n.level === lv && new Date(n.published) > Date.now() - 864e5).length;
   return (
@@ -124,6 +126,7 @@ export function News() {
           <div className="row"><div className="title grow">{tr('Lịch tin kinh tế (giống lịch MT5)', 'Economic calendar (as on MT5)')}</div>
             <div className="seg">{[['hot', tr('Đỏ + Cam', 'Red + Orange')], ['all', tr('Tất cả', 'All')]].map(([k, l]) => <button key={k} type="button" className={evF === k ? 'on' : ''} onClick={() => setEvF(k)}>{l}</button>)}</div></div>
           <p className="small muted" style={{ margin: 0 }}>{tr('Giờ Việt Nam. Đỏ: tin mạnh của Mỹ (USD). Cam: tin mạnh nước khác hoặc tin trung bình của Mỹ. Cảnh báo bật từ 30 phút trước đến 30 phút sau giờ ra tin.', 'Vietnam time (GMT+7). Red: high-impact US (USD) events. Orange: high-impact events of other countries or medium-impact US events. The alert is on from 30 minutes before to 30 minutes after the release.')}</p>
+          {evFall && <div className="small" style={{ color: 'var(--ink-2)' }}>{tr('Từ giờ đến hết tuần không có tin Đỏ / Cam, đang hiện các tin Vàng.', 'No Red / Orange events for the rest of this week, showing Yellow events.')}</div>}
           {Object.keys(byDay).length ? Object.entries(byDay).map(([day, list]) => (
             <div key={day} style={{ display: 'grid', gap: 6 }}>
               <span className="small" style={{ color: 'var(--ink-muted)', fontWeight: 500 }}>{day.charAt(0).toUpperCase() + day.slice(1)}</span>
@@ -135,7 +138,7 @@ export function News() {
                     {(e.forecast || e.previous) && <span className="small muted"> · {tr('Dự báo', 'Forecast')} {e.forecast || '—'} · {tr('Trước', 'Previous')} {e.previous || '—'}</span>}</span>
                   {!past && e.level === 'red' && <span className="small" style={{ color: 'var(--loss)', whiteSpace: 'nowrap' }}>{until(e.at)}</span>}
                 </div>); })}
-            </div>)) : <div className="empty">{tr('Chưa có lịch tin', 'No events yet')}</div>}
+            </div>)) : <div className="empty">{tr('Từ giờ đến hết tuần không còn tin đáng chú ý. Lịch tuần sau có vào Chủ nhật.', 'No notable events for the rest of this week. Next week\'s calendar arrives on Sunday.')}</div>}
         </section>
 
         <section className="card">

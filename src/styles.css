@@ -190,3 +190,10 @@ td.num .small,td.num .muted,.num .small.muted{font-family:var(--font-sans);font-
 .hero .h-display{margin:0}
 .hero-logo{width:120px;height:120px;opacity:.9}
 @media (max-width:700px){.hero-logo{display:none}.hero[style]{grid-template-columns:minmax(0,1fr)!important}}
+.admin-head{display:grid;gap:var(--space-3)}
+.admin-head .h-lg{margin:0}
+.subnav{display:flex;gap:20px;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:none}
+.subnav::-webkit-scrollbar{display:none}
+.subnav a{padding:8px 0 10px;color:var(--ink-muted);font-size:14px;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.subnav a:hover{color:var(--ink);text-decoration:none}
+.subnav a.on{color:var(--ink);border-bottom-color:var(--brand)}

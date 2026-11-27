@@ -1,4 +1,4 @@
-import { BookOpen, Download } from 'lucide-react';
+import { BookOpen, Download, PlayCircle } from 'lucide-react';
 import { Stamp } from './ui.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import { sb, tr, getLang } from './lib.js';
@@ -33,7 +33,7 @@ function videoEmbed(u) {
 }
 function Video({ url }) {
   const v = videoEmbed(url); if (!v) return null;
-  if (v.kind === 'link') return <a className="btn" href={v.src} target="_blank" rel="noopener noreferrer">▶ {tr('Xem video hướng dẫn', 'Watch the video')}</a>;
+  if (v.kind === 'link') return <a className="btn" href={v.src} target="_blank" rel="noopener noreferrer"><PlayCircle size={16} strokeWidth={1.5} />{tr('Xem video hướng dẫn', 'Watch the video')}</a>;
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: 760, aspectRatio: '16 / 9', background: '#000', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
       {v.kind === 'iframe'
@@ -259,7 +259,7 @@ export function GuideAdmin({ say }) {
           <a className="btn" href="#/guide" target="_blank" rel="noopener noreferrer">Xem trang khách ↗</a>
           <button className="btn pri" onClick={() => setEb({ name: '', slug: '', sort: (brokers.length + 1), published: true })}>+ Thêm sàn</button></div>
         <p className="small muted" style={{ margin: 0 }}>Khách xem ở <b>lion-bot.pages.dev/#/guide</b>, không cần đăng nhập. Mỗi sàn có các mục riêng (Đăng ký → Xác minh → Nạp tiền → Cài copy bot…): bấm <b>+ Thêm mục bên dưới</b> để chèn mục mới đúng vị trí, <b>Sửa mục</b> để đổi tên / chuyển vị trí / xóa. Ảnh chụp màn hình tự thu nhỏ khi tải lên. Video ngắn tải thẳng (≤ 50MB); video dài nên đưa lên YouTube để <b>Không công khai</b> rồi dán link (xem mượt hơn, không tốn dung lượng web).</p>
-        <div className="seg" style={{ justifySelf: 'start', flexWrap: 'wrap' }}>{brokers.map(x => <button key={x.id} className={sel === x.id ? 'on' : ''} onClick={() => setSel(x.id)}>{x.name} <span className="muted small">({steps.filter(s => s.broker_id === x.id).length})</span>{!x.published && ' 🔒'}</button>)}</div>
+        <div className="seg" style={{ justifySelf: 'start', flexWrap: 'wrap' }}>{brokers.map(x => <button key={x.id} className={sel === x.id ? 'on' : ''} onClick={() => setSel(x.id)}>{x.name} <span className="muted small">({steps.filter(s => s.broker_id === x.id).length})</span>{!x.published && <span className="muted small"> · ẩn</span>}</button>)}</div>
       </section>
 
       {b && <section className="card">
@@ -274,7 +274,7 @@ export function GuideAdmin({ say }) {
               <button className="btn sm" disabled={si === bsec.length - 1} onClick={() => moveSection(si, 1)} title="Đưa mục xuống dưới">↓</button>
               <button className="btn sm" onClick={() => setEc({ ...sc, after: bsec[si - 1]?.key || '__first' })}>Sửa mục</button>
               <button className="btn sm" onClick={() => setEc({ name: '', name_en: '', after: k })}>+ Thêm mục bên dưới</button>
-              <button className="btn sm pri" onClick={() => setEs({ section: k, title: '', body: '', images: [], video_url: '' })}>+ Thêm bước</button></div>
+              <button className="btn sm" onClick={() => setEs({ section: k, title: '', body: '', images: [], video_url: '' })}>+ Thêm bước</button></div>
             {list.map((s, i) => <div key={s.id} className="row" style={{ background: 'var(--surface-200)', borderRadius: 'var(--radius-md)', padding: '8px 12px', flexWrap: 'nowrap' }}>
               <span className="num muted" style={{ width: 22 }}>{i + 1}</span>
               {s.images?.[0] ? <img src={s.images[0]} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, flex: 'none' }} /> : <span style={{ width: 48, height: 48, flex: 'none' }} />}

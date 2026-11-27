@@ -18,8 +18,8 @@ export default function Admin({ me, sub, arg }) {
   const tabs = [...(isAdmin ? [['overview', 'Tổng quan'], ['balance', 'Số dư & nạp rút'], ['profit', 'Chia lợi nhuận']] : []), ...(editor ? [['botmon', 'Giám sát bot']] : []), ['accounts', 'Tài khoản'], ['customers', 'Khách hàng'], ['systems', 'Hệ thống'], ['vps', 'VPS'], ...(editor ? [['guides', 'Hướng dẫn']] : []), ...(me?.role === 'admin' ? [['users', 'Người dùng'], ...(isAdmin ? [['telegram', 'Telegram'], ['botlink', 'Kết nối bot']] : [])] : [])];
   return (
     <main className="wrap">
-      <div className="row"><h1 className="h-lg grow">Quản trị</h1>
-        <nav className="tabs">{tabs.map(([k, l]) => <a key={k} href={'#/admin/' + k} className={sub === k ? 'on' : ''}>{l}</a>)}</nav></div>
+      <div className="admin-head"><h1 className="h-lg">Quản trị</h1>
+        <nav className="subnav">{tabs.map(([k, l]) => <a key={k} href={'#/admin/' + k} className={sub === k || (!tabs.some(x => x[0] === sub) && k === 'accounts') ? 'on' : ''}>{l}</a>)}</nav></div>
       {!editor && <div className="pill mut">Tài khoản Core team chỉ xem, không sửa được.</div>}
       {isAdmin && sub === 'overview' ? <FinOverview say={say} />
         : editor && sub === 'guides' ? <GuideAdmin say={say} />
@@ -66,7 +66,7 @@ function Systems({ editor, say }) {
   const inBranch = sid => { if (!sid) return []; const ids = desc(sid); const cs = new Set((custs || []).filter(c => ids.has(c.system_id)).map(c => c.id)); return (accs || []).filter(a => cs.has(a.customer_id)); };
   const walk = pid => { const k = kids(pid); if (!k.length) return null; return <ul>{k.map(n => <li key={n.id}>
     <div className="node"><span className="n">{n.name}{(n.leader_customer_id || n.leader_name) && <span className="small muted"> · trưởng nhánh {cname(n.leader_customer_id) || n.leader_name}</span>}
-        {n.share_enabled && n.share_token && <span className="pill ok" style={{ marginLeft: 6 }}>🔗 Link master {accNo(n.master_account_id)}</span>}</span>
+        {n.share_enabled && n.share_token && <span className="pill ok" style={{ marginLeft: 6 }}>Link master {accNo(n.master_account_id)}</span>}</span>
       {editor && <span className="row">{n.share_enabled && n.share_token && <button className="btn sm" onClick={() => copyLink(n.share_token)}>Chép link</button>}<button className="btn sm" onClick={() => setEdit({ parent_id: n.id })}>+ Nhánh con</button><button className="btn sm" onClick={() => setEdit({ ...n })}>Sửa</button></span>}</div>
     {walk(n.id)}</li>)}</ul>; };
   const opts = (exclude) => { const ex = exclude ? desc(exclude) : new Set(); const out = []; const w = (pid, d) => kids(pid).forEach(n => { if (ex.has(n.id)) return; out.push(<option key={n.id} value={n.id}>{'— '.repeat(d)}{n.name}</option>); w(n.id, d + 1); }); w(null, 0); return out; };
@@ -236,8 +236,8 @@ function AccountsAdmin({ editor, say }) {
   const delPending = async a => { if (!confirm('Xóa tài khoản chờ duyệt ' + a.account_no + ' cùng dữ liệu đã nhận?')) return; const { error } = await sb.from('accounts').delete().eq('id', a.id); if (error) return say(error.message); load(); say('Đã xóa'); };
   const ago = ts => { if (!ts) return '—'; const m = Math.round((Date.now() - new Date(ts)) / 60000); return m < 1 ? 'vừa xong' : m < 60 ? m + ' phút trước' : m < 1440 ? Math.floor(m / 60) + ' giờ trước' : Math.floor(m / 1440) + ' ngày trước'; };
   return (<>
-    {pending.length > 0 && <section className="card" style={{ borderColor: 'var(--brand)' }}>
-      <div className="row"><div className="title grow">🆕 Tài khoản chờ duyệt / bị chặn ({pending.length})</div></div>
+    {pending.length > 0 && <section className="card" style={{ borderColor: 'var(--brand-line)' }}>
+      <div className="row"><div className="title grow row" style={{ gap: 8 }}><span className="dot" style={{ background: 'var(--brand)' }} />Tài khoản chờ duyệt / bị chặn ({pending.length})</div></div>
       <p className="small muted" style={{ margin: 0 }}>Bot gửi dữ liệu theo số tài khoản nên web tự tạo các tài khoản này. Bấm <b>Duyệt</b> để gán khách, tỷ lệ chia, VPS… Chưa duyệt thì <b>không</b> tính vào số liệu khách, chia lợi nhuận hay trang công khai.</p>
       <div className="tbl"><table><thead><tr><th>Số TK</th><th>Sàn / server</th><th>Bot</th><th>Lần gửi</th><th></th></tr></thead><tbody>
         {pending.map(a => <tr key={a.id}>
